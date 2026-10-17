@@ -1,14 +1,29 @@
 import Foundation
 
 public enum QuotaMenu {
-    public static func rows(snapshot: QuotaSnapshot?, at now: Date, timeZone: TimeZone = .current) -> [String] {
+    public static func rows(snapshot: QuotaSnapshot?, mode: QuotaDisplayMode = .automatic, at now: Date, timeZone: TimeZone = .current) -> [String] {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.timeZone = timeZone
         formatter.dateFormat = "M/d HH:mm"
         let fresh = snapshot?.isFresh(at: now) == true
+        let showsCountdown = mode.resolved(for: snapshot) == .countdown
         var rows: [String] = []
-        for (name, window) in [("5H", snapshot?.fiveHour), ("W", snapshot?.weekly)] {
+        if showsCountdown {
+            if let countdown = snapshot?.countdown(at: now) {
+                rows.append("D 距周额度重置 \(countdown.daysText) 天")
+            } else if !fresh {
+                rows.append("D 距周额度重置 -- · 等待刷新")
+            } else if let reset = snapshot?.weekly?.resetsAt, reset.isFinite, reset <= now.timeIntervalSince1970 {
+                rows.append("D 已到重置时间，等待刷新")
+            } else { rows.append("D 距周额度重置 -- · 重置时间未提供或无效") }
+        }
+        let windows = showsCountdown ? [("W", snapshot?.weekly)] : [("5H", snapshot?.fiveHour), ("W", snapshot?.weekly)]
+        for (name, window) in windows {
+            if name == "5H", fresh, window == nil {
+                rows.append("5H 剩余 -- · 该账号未提供 5 小时额度")
+                continue
+            }
             let remaining = fresh ? window?.remaining(at: now).map { "\($0)%" } ?? "--" : "--"
             let reset: String
             if snapshot != nil && !fresh { reset = "等待刷新" }

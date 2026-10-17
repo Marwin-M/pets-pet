@@ -91,17 +91,27 @@ final class QuotaClient {
         let descriptor = output.fileHandleForReading.fileDescriptor
         _ = fcntl(descriptor, F_SETFL, O_NONBLOCK)
         var buffer = Data()
+        var quotaData: Data?
+        var accountData: Data?
+        var accountFinished = false
+        var accountWaitUntil: Date?
         let deadline = Date().addingTimeInterval(20)
         while Date() < deadline {
             lock.lock(); let cancelled = stopped; lock.unlock()
             if cancelled { throw QuotaClientError.stopped }
+            if let quotaData, accountFinished || Date() >= (accountWaitUntil ?? deadline) {
+                return try QuotaParser.parse(quotaData, accountData: accountData)
+            }
             var descriptorEvent = pollfd(fd: descriptor, events: Int16(POLLIN), revents: 0)
             let count = Darwin.poll(&descriptorEvent, 1, 200)
             if count < 0 && errno != EINTR { throw QuotaClientError.stopped }
             if count == 0 { continue }
             var bytes = [UInt8](repeating: 0, count: 65536)
             let readCount = Darwin.read(descriptor, &bytes, bytes.count)
-            if readCount == 0 { throw QuotaClientError.stopped }
+            if readCount == 0 {
+                if let quotaData { return try QuotaParser.parse(quotaData, accountData: accountData) }
+                throw QuotaClientError.stopped
+            }
             if readCount < 0 {
                 if errno == EAGAIN || errno == EINTR { continue }
                 throw QuotaClientError.stopped
@@ -112,8 +122,14 @@ final class QuotaClient {
                 let line = Data(buffer[..<newline])
                 buffer.removeSubrange(...newline)
                 guard let message = try JSONSerialization.jsonObject(with: line) as? [String: Any], let id = message["id"] as? Int else { continue }
-                guard id == 1 || id == 2 else { continue }
-                if let error = message["error"] as? [String: Any] {
+                guard id == 1 || id == 2 || id == 3 else { continue }
+                // Older servers can reject account/read without losing valid quota.
+                if id == 3 {
+                    if let result = message["result"] as? [String: Any] {
+                        accountData = try? JSONSerialization.data(withJSONObject: result)
+                    }
+                    accountFinished = true
+                } else if let error = message["error"] as? [String: Any] {
                     let text = (error["message"] as? String ?? "").lowercased()
                     if text.contains("auth") || text.contains("login") || text.contains("chatgpt") { throw QuotaClientError.loginRequired }
                     throw QuotaClientError.serviceUnavailable
@@ -122,13 +138,24 @@ final class QuotaClient {
                     guard message["result"] != nil else { throw QuotaClientError.protocolError }
                     try send(["method": "initialized", "params": [:]])
                     try send(["id": 2, "method": "account/rateLimits/read"])
+                    try send(["id": 3, "method": "account/read", "params": ["refreshToken": false]])
                 } else if id == 2 {
                     guard let result = message["result"] as? [String: Any] else { throw QuotaClientError.protocolError }
-                    do { return try QuotaParser.parse(JSONSerialization.data(withJSONObject: result)) }
+                    do {
+                        let data = try JSONSerialization.data(withJSONObject: result)
+                        // Validate immediately; account metadata never masks a quota error.
+                        _ = try QuotaParser.parse(data)
+                        quotaData = data
+                    }
                     catch is DecodingError { throw QuotaClientError.protocolError }
+                    accountWaitUntil = Date().addingTimeInterval(2)
+                }
+                if let quotaData, accountFinished {
+                    return try QuotaParser.parse(quotaData, accountData: accountData)
                 }
             }
         }
+        if let quotaData { return try QuotaParser.parse(quotaData, accountData: accountData) }
         throw QuotaClientError.timeout
     }
 }

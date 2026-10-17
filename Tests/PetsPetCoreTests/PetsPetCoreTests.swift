@@ -117,6 +117,162 @@ final class QuotaTests {
         expectFalse(QuotaSnapshot(fiveHour: nil, weekly: nil, fetchedAt: now.addingTimeInterval(-151)).isFresh(at: now))
         expectFalse(QuotaSnapshot(fiveHour: nil, weekly: nil, fetchedAt: now.addingTimeInterval(60)).isFresh(at: now))
     }
+
+    func testPlanUsesExplicitServerMetadataAndNeverGuessesFromWindows() throws {
+        let quota = Data(#"{"rateLimits":{"primary":{"usedPercent":12,"windowDurationMins":10080,"resetsAt":1800000000}}}"#.utf8)
+        func withAccount(_ account: String) throws -> QuotaSnapshot {
+            try QuotaParser.parse(quota, accountData: Data(account.utf8), at: now)
+        }
+        let pro = try withAccount(#"{"account":{"type":"chatgpt","planType":"pro","email":"ignored@example.invalid"}}"#)
+        expectTrue(pro.isPro)
+        expectNil(pro.fiveHour)
+        expectEqual(pro.weekly?.remaining(at: now), 88)
+        let plus = try withAccount(#"{"account":{"type":"chatgpt","planType":"plus"}}"#)
+        expectFalse(plus.isPro)
+        expectEqual(plus.planType, "plus")
+        for account in [#"{"account":null}"#, #"{"account":{"type":"apiKey","planType":"pro"}}"#,
+                        #"{"account":{"type":"chatgpt","planType":"future_plan"}}"#, #"{"account":{"type":"chatgpt"}}"#,
+                        #"{"account":{"type":"chatgpt","planType":123}}"#, "invalid"] {
+            let result = try withAccount(account)
+            expectFalse(result.isPro)
+            expectEqual(result.weekly?.remaining(at: now), 88)
+        }
+        let unknown = try QuotaParser.parse(quota, at: now)
+        expectFalse(unknown.isPro)
+        let bucketPro = try parse(#"{"rateLimitsByLimitId":{"codex":{"planType":"pro","primary":{"windowDurationMins":10080,"usedPercent":12}},"other":{"planType":"plus"}}}"#)
+        expectTrue(bucketPro.isPro)
+        let bucketPlus = Data(#"{"rateLimits":{"planType":"plus","primary":{"windowDurationMins":300,"usedPercent":34}}}"#.utf8)
+        let currentPlan = try QuotaParser.parse(bucketPlus, accountData: Data(#"{"account":{"type":"chatgpt","planType":"pro"}}"#.utf8), at: now)
+        expectFalse(currentPlan.isPro)
+        let malformedPlan = try parse(#"{"rateLimits":{"planType":123,"primary":{"windowDurationMins":300,"usedPercent":34}}}"#)
+        expectFalse(malformedPlan.isPro)
+        let encoded = String(decoding: try JSONEncoder().encode(pro), as: UTF8.self)
+        expectFalse(encoded.contains("email"))
+        expectFalse(encoded.contains("ignored@example.invalid"))
+    }
+
+    func testCountdownGrowsAsResetApproachesAndDoesNotDependOnQuotaUsage() {
+        func window(days: Double, used: Double? = nil) -> QuotaWindow {
+            QuotaWindow(usedPercent: used, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(days * 86400).timeIntervalSince1970)
+        }
+        expectEqual(window(days: 7).countdown(at: now)?.daysText, "7.0")
+        expectEqual(window(days: 7).countdown(at: now)?.elapsedFraction, 0)
+        expectEqual(window(days: 3.5).countdown(at: now)?.elapsedFraction, 0.5)
+        expectEqual(window(days: 3.5).countdown(at: now)?.daysText, "3.5")
+        expectEqual(window(days: 1.2).countdown(at: now)?.daysText, "1.2")
+        expectEqual(window(days: 0.1).countdown(at: now)?.daysText, "0.1")
+        expectEqual(window(days: 0.01).countdown(at: now)?.daysText, "0.1")
+        expectTrue(window(days: 0.01).countdown(at: now)!.elapsedFraction > 0.99)
+        expectEqual(window(days: 1.2, used: 0).countdown(at: now), window(days: 1.2, used: 100).countdown(at: now))
+        let sameWindow = window(days: 3.5)
+        expectTrue(sameWindow.countdown(at: now.addingTimeInterval(60))!.elapsedFraction > sameWindow.countdown(at: now)!.elapsedFraction)
+    }
+
+    func testCountdownRejectsExpiredMissingInvalidAndStaleValues() {
+        func window(reset: Double?, duration: Int? = 10080) -> QuotaWindow {
+            QuotaWindow(usedPercent: 12, windowDurationMins: duration, resetsAt: reset)
+        }
+        for reset in [nil, .nan, .infinity, now.timeIntervalSince1970, now.timeIntervalSince1970 - 1, now.timeIntervalSince1970 + 8 * 86400] as [Double?] {
+            expectNil(window(reset: reset).countdown(at: now))
+        }
+        let reset = now.timeIntervalSince1970 + 3.5 * 86400
+        for duration in [nil, 0, -1] as [Int?] { expectNil(window(reset: reset, duration: duration).countdown(at: now)) }
+        let weekly = window(reset: reset)
+        func snapshot(plan: String?, fetchedAt: Date) -> QuotaSnapshot {
+            QuotaSnapshot(fiveHour: nil, weekly: weekly, fetchedAt: fetchedAt, planType: plan)
+        }
+        expectEqual(snapshot(plan: "plus", fetchedAt: now).countdown(at: now)?.daysText, "3.5")
+        expectEqual(snapshot(plan: nil, fetchedAt: now).countdown(at: now)?.daysText, "3.5")
+        expectNil(snapshot(plan: "pro", fetchedAt: now.addingTimeInterval(-151)).countdown(at: now))
+        expectNil(snapshot(plan: "pro", fetchedAt: now.addingTimeInterval(60)).countdown(at: now))
+        let pro = snapshot(plan: "pro", fetchedAt: now)
+        expectEqual(pro.countdown(at: now)?.daysText, "3.5")
+        let menu = QuotaMenu.rows(snapshot: pro, at: now)
+        expectTrue(menu[0].contains("D 距周额度重置 3.5 天"))
+        expectTrue(menu[1].contains("W 剩余 88%"))
+        expectFalse(menu.contains { $0.contains("5H") })
+        let expired = QuotaSnapshot(fiveHour: nil, weekly: window(reset: now.timeIntervalSince1970), fetchedAt: now, planType: "pro")
+        expectTrue(QuotaMenu.rows(snapshot: expired, at: now)[0].contains("已到重置时间"))
+        expectTrue(QuotaMenu.rows(snapshot: expired, at: now)[1].contains("W 剩余 --"))
+        expectTrue(QuotaMenu.rows(snapshot: pro, at: now.addingTimeInterval(151))[0].contains("等待刷新"))
+        let refreshed = QuotaSnapshot(fiveHour: nil, weekly: window(reset: now.timeIntervalSince1970 + 7 * 86400), fetchedAt: now, planType: "pro")
+        expectEqual(refreshed.countdown(at: now)?.elapsedFraction, 0)
+    }
+}
+
+final class QuotaDisplayModeTests {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    func snapshot(plan: String?, fiveHour: Bool = true, weekly: Bool = true, fetchedAt: Date? = nil) -> QuotaSnapshot {
+        QuotaSnapshot(
+            fiveHour: fiveHour ? QuotaWindow(usedPercent: 34, windowDurationMins: 300, resetsAt: now.timeIntervalSince1970 + 7200) : nil,
+            weekly: weekly ? QuotaWindow(usedPercent: 12, windowDurationMins: 10080, resetsAt: now.timeIntervalSince1970 + 3.5 * 86400) : nil,
+            fetchedAt: fetchedAt ?? now, planType: plan)
+    }
+
+    func testAutomaticUsesAvailableWindowsAndSurvivesFuturePlanChanges() {
+        for plan in ["pro", "plus", "future_plan", nil] as [String?] {
+            let both = snapshot(plan: plan)
+            expectEqual(QuotaDisplayMode.automatic.resolved(for: both), .quota)
+            let weeklyOnly = snapshot(plan: plan, fiveHour: false)
+            expectEqual(QuotaDisplayMode.automatic.resolved(for: weeklyOnly), .countdown)
+            expectEqual(weeklyOnly.countdown(at: now)?.daysText, "3.5")
+            expectEqual(weeklyOnly.isPro, plan == "pro")
+        }
+        expectEqual(QuotaDisplayMode.automatic.resolved(for: nil), .quota)
+        expectEqual(QuotaDisplayMode.automatic.resolved(for: snapshot(plan: "pro", fiveHour: false, weekly: false)), .quota)
+        expectEqual(QuotaDisplayMode.automatic.resolved(for: snapshot(plan: "plus", weekly: false)), .quota)
+        // A missing percentage is a read failure, not evidence the 5H window disappeared.
+        let unknownPercent = QuotaSnapshot(fiveHour: QuotaWindow(usedPercent: nil, windowDurationMins: 300, resetsAt: nil), weekly: snapshot(plan: "pro").weekly, fetchedAt: now, planType: "pro")
+        expectEqual(QuotaDisplayMode.automatic.resolved(for: unknownPercent), .quota)
+        expectNil(unknownPercent.fiveHour?.remaining(at: now))
+        let stale = snapshot(plan: "pro", fiveHour: false, fetchedAt: now.addingTimeInterval(-151))
+        expectEqual(QuotaDisplayMode.automatic.resolved(for: stale), .countdown)
+        expectNil(stale.countdown(at: now))
+    }
+
+    func testManualChoiceOverridesAvailabilityAndMenuMatchesContent() {
+        let weeklyOnly = snapshot(plan: "pro", fiveHour: false)
+        let futurePro = snapshot(plan: "pro")
+        let plus = snapshot(plan: "plus")
+        for value in [weeklyOnly, futurePro, plus] {
+            expectEqual(QuotaDisplayMode.quota.resolved(for: value), .quota)
+            expectEqual(QuotaDisplayMode.countdown.resolved(for: value), .countdown)
+            let rows = QuotaMenu.rows(snapshot: value, mode: .countdown, at: now)
+            expectTrue(rows[0].contains("D 距周额度重置 3.5 天"))
+            expectTrue(rows[1].contains("W 剩余 88%"))
+            expectFalse(rows.contains { $0.contains("5H") })
+        }
+        let missing = QuotaMenu.rows(snapshot: weeklyOnly, mode: .quota, at: now)
+        expectTrue(missing[0].contains("5H 剩余 --"))
+        expectTrue(missing[0].contains("该账号未提供 5 小时额度"))
+        expectTrue(QuotaMenu.rows(snapshot: futurePro, mode: .automatic, at: now)[0].contains("5H 剩余 66%"))
+        expectTrue(futurePro.isPro)
+        expectFalse(plus.isPro)
+        let noWeekly = snapshot(plan: "plus", weekly: false)
+        let unknownDays = QuotaMenu.rows(snapshot: noWeekly, mode: .countdown, at: now)
+        expectTrue(unknownDays[0].contains("D 距周额度重置 --"))
+        expectTrue(unknownDays[1].contains("W 剩余 --"))
+        expectEqual(QuotaDisplayMode.countdown.resolved(for: nil), .countdown)
+        expectTrue(QuotaMenu.rows(snapshot: nil, mode: .countdown, at: now)[0].contains("D 距周额度重置 --"))
+    }
+
+    func testSavedSelectionDefaultsAndRemainsIndependentOfAccount() {
+        expectEqual(QuotaDisplayMode(savedValue: nil), .automatic)
+        expectEqual(QuotaDisplayMode(savedValue: "future_mode"), .automatic)
+        expectEqual(QuotaDisplayMode(savedValue: ""), .automatic)
+        let suite = "com.marwin.petspet.mode-checks.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        for choice in QuotaDisplayMode.allCases {
+            defaults.set(choice.rawValue, forKey: QuotaDisplayMode.defaultsKey)
+            let restored = QuotaDisplayMode(savedValue: UserDefaults(suiteName: suite)!.string(forKey: QuotaDisplayMode.defaultsKey))
+            expectEqual(restored, choice)
+            if choice != .automatic {
+                expectEqual(restored.resolved(for: snapshot(plan: "pro", fiveHour: false)), choice)
+                expectEqual(restored.resolved(for: snapshot(plan: "plus")), choice)
+            }
+        }
+    }
 }
 
 final class Version120Tests {
@@ -535,7 +691,7 @@ final class TrackingCadenceTests {
     }
 }
 
-let identity = PetIdentityTests(), placement = PlacementTests(), quotas = QuotaTests(), version120 = Version120Tests(), version122 = Version122Tests(), petClicks = PetClickTests(), cadence = TrackingCadenceTests()
+let identity = PetIdentityTests(), placement = PlacementTests(), quotas = QuotaTests(), displayModes = QuotaDisplayModeTests(), version120 = Version120Tests(), version122 = Version122Tests(), petClicks = PetClickTests(), cadence = TrackingCadenceTests()
 let checks: [(String, () throws -> Void)] = [
     ("idle tracking stays at one second without fast timer", cadence.testIdleNeverStartsFastPollingByItself),
     ("drag activity expires without mouse up and resumes", cadence.testMovementRefreshesBriefFastWindowAndThenExpires),
@@ -568,6 +724,12 @@ let checks: [(String, () throws -> Void)] = [
     ("invalid payload", quotas.testMalformedPayloadFailsExplicitly),
     ("quota limits and reset expiry", quotas.testBoundariesAndResetDoNotInventNewQuota),
     ("stale and future data", quotas.testStaleAndFutureCacheAreNotFresh),
+    ("explicit Pro and Plus plans with safe unknown fallback", quotas.testPlanUsesExplicitServerMetadataAndNeverGuessesFromWindows),
+    ("Pro countdown fills toward reset independently of quota usage", quotas.testCountdownGrowsAsResetApproachesAndDoesNotDependOnQuotaUsage),
+    ("Pro countdown invalid data, freshness, reset boundary and menu", quotas.testCountdownRejectsExpiredMissingInvalidAndStaleValues),
+    ("automatic content follows windows independently of plan", displayModes.testAutomaticUsesAvailableWindowsAndSurvivesFuturePlanChanges),
+    ("manual content choice and menu stay consistent", displayModes.testManualChoiceOverridesAvailabilityAndMenuMatchesContent),
+    ("display preference saved separately from account", displayModes.testSavedSelectionDefaultsAndRemainsIndependentOfAccount),
     ("below pet and outside expanded content", version120.testBelowAndExpandedContentAvoidance),
     ("stable above/below switching and bounded content", version120.testSwitchingHasHysteresisAndRejectsHugeOverlay),
     ("reconnect after process changes and AX failures", version120.testReconnectAfterRestartAndReadFailures),

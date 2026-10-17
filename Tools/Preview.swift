@@ -17,14 +17,45 @@ struct PreviewRenderer {
                 ["resetType": "codexRateLimits", "status": "available", "expiresAt": now.addingTimeInterval(14 * 86400).timeIntervalSince1970]
             ]
         ]))
-        func model(_ fiveHour: Double?, _ weekly: Double?) -> DisplayModel {
+        func model(_ fiveHour: Double?, _ weekly: Double?, planType: String? = nil, days: Double? = nil) -> DisplayModel {
             let value = DisplayModel()
             value.now = now
             value.loading = false
             value.snapshot = QuotaSnapshot(
-                fiveHour: QuotaWindow(usedPercent: fiveHour, windowDurationMins: 300, resetsAt: now.addingTimeInterval(7200).timeIntervalSince1970),
-                weekly: QuotaWindow(usedPercent: weekly, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(200000).timeIntervalSince1970), fetchedAt: now, resetCredits: sampleCards)
+                fiveHour: fiveHour.map { QuotaWindow(usedPercent: $0, windowDurationMins: 300, resetsAt: now.addingTimeInterval(7200).timeIntervalSince1970) },
+                weekly: QuotaWindow(usedPercent: weekly, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(days.map { $0 * 86400 } ?? 200000).timeIntervalSince1970), fetchedAt: now, resetCredits: sampleCards, planType: planType)
             return value
+        }
+        if CommandLine.arguments.contains("--pro") {
+            let error = model(nil, 12, planType: "pro", days: 1.2)
+            error.error = "预览：查询失败"
+            let stale = model(nil, 12, planType: "pro", days: 1.2)
+            stale.now = now.addingTimeInterval(151)
+            let missing = DisplayModel(); missing.now = now; missing.loading = false
+            missing.snapshot = QuotaSnapshot(fiveHour: nil, weekly: QuotaWindow(usedPercent: 12, windowDurationMins: 10080, resetsAt: nil), fetchedAt: now, planType: "pro")
+            let forcedQuota = model(nil, 12, planType: "pro", days: 1.2)
+            forcedQuota.contentMode = .quota
+            let plusCountdown = model(34, 12, planType: "plus", days: 1.2)
+            plusCountdown.contentMode = .countdown
+            let cases = [
+                ("pro", model(nil, 12, planType: "pro", days: 1.2)),
+                ("pro-half", model(nil, 12, planType: "pro", days: 3.5)),
+                ("pro-start", model(nil, 0, planType: "pro", days: 7)),
+                ("pro-soon", model(nil, 100, planType: "pro", days: 0.01)),
+                ("pro-expired", model(nil, 12, planType: "pro", days: 0)),
+                ("pro-error", error), ("pro-stale", stale), ("pro-missing", missing),
+                ("pro-forced-quota", forcedQuota),
+                ("pro-with-5h", model(34, 12, planType: "pro")),
+                ("plus-countdown", plusCountdown)
+            ]
+            for (name, value) in cases {
+                for appearance in [AppearancePreference.light, .dark] {
+                    value.appearance = appearance
+                    try write(QuotaView(model: value), to: output.appendingPathComponent("\(name)\(appearance == .dark ? "-dark" : "").png"))
+                }
+            }
+            print("Updated Pro native review images; app bundle unchanged.")
+            return
         }
         // Public demonstration images always show 66 / 88 remaining.
         let current = model(34, 12)

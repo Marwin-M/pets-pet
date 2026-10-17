@@ -36,6 +36,7 @@ import PetsPetCore
         do { store = try SupportStore() }
         catch { showStorageError(); return }
         model.appearance = AppearancePreference(savedValue: UserDefaults.standard.string(forKey: "appearance"))
+        model.contentMode = QuotaDisplayMode(savedValue: UserDefaults.standard.string(forKey: QuotaDisplayMode.defaultsKey))
         applyAppearance()
         overlay = OverlayController(model: model)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -189,7 +190,7 @@ import PetsPetCore
         menu.addItem(.separator())
         if model.loading { label("正在读取额度…", in: menu, secondary: true) }
         if let error = model.error { label(error, in: menu) }
-        for row in QuotaMenu.rows(snapshot: model.error == nil ? model.snapshot : nil, at: Date()) { label(row, in: menu) }
+        for row in QuotaMenu.rows(snapshot: model.error == nil ? model.snapshot : nil, mode: model.contentMode.resolved(for: model.snapshot), at: Date()) { label(row, in: menu) }
         if let fetched = model.snapshot?.fetchedAt {
             let formatter = DateFormatter(); formatter.timeStyle = .medium
             label("额度更新于 \(formatter.string(from: fetched))", in: menu, secondary: true)
@@ -197,6 +198,18 @@ import PetsPetCore
         menu.addItem(.separator())
         item("立即刷新额度", #selector(fetch), in: menu)
         menu.items.last?.isEnabled = !fetching
+        let content = NSMenuItem(title: "组件内容", action: nil, keyEquivalent: "")
+        let contentChoices = NSMenu()
+        contentChoices.autoenablesItems = false
+        for choice in QuotaDisplayMode.allCases {
+            let option = NSMenuItem(title: choice.title, action: #selector(selectContentMode(_:)), keyEquivalent: "")
+            option.target = self
+            option.representedObject = choice.rawValue
+            option.state = choice == model.contentMode ? .on : .off
+            contentChoices.addItem(option)
+        }
+        content.submenu = contentChoices
+        menu.addItem(content)
         let appearance = NSMenuItem(title: "外观", action: nil, keyEquivalent: "")
         let choices = NSMenu()
         choices.autoenablesItems = false
@@ -219,6 +232,12 @@ import PetsPetCore
     @objc private func toggleSidebarTokens() { sidebar.setTokens(!sidebar.tokensEnabled) }
     @objc private func toggleProjectSizes() { sidebar.setProjects(!sidebar.projectsEnabled) }
     @objc private func enableSidebarConnection() { sidebar.enableConnection() }
+
+    @objc private func selectContentMode(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let choice = QuotaDisplayMode(rawValue: raw) else { return }
+        model.contentMode = choice
+        UserDefaults.standard.set(choice.rawValue, forKey: QuotaDisplayMode.defaultsKey)
+    }
 
     @objc private func selectAppearance(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let choice = AppearancePreference(rawValue: raw) else { return }

@@ -16,6 +16,23 @@ public struct QuotaWindow: Codable, Equatable {
               resetsAt == nil || resetsAt! > now.timeIntervalSince1970 else { return nil }
         return Int((100 - min(100, max(0, usedPercent))).rounded())
     }
+
+    public func countdown(at now: Date) -> QuotaCountdown? {
+        guard let resetsAt, resetsAt.isFinite, now.timeIntervalSince1970.isFinite,
+              let windowDurationMins, windowDurationMins > 0 else { return nil }
+        let duration = Double(windowDurationMins) * 60
+        let seconds = resetsAt - now.timeIntervalSince1970
+        // An expired or inconsistent reset is unknown until the server refreshes it.
+        guard seconds > 0, seconds <= duration else { return nil }
+        let days = seconds / 86400
+        return QuotaCountdown(daysText: String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), max(0.1, days)),
+                              elapsedFraction: min(1, max(0, 1 - seconds / duration)))
+    }
+}
+
+public struct QuotaCountdown: Equatable {
+    public let daysText: String
+    public let elapsedFraction: Double
 }
 
 public struct QuotaSnapshot: Codable, Equatable {
@@ -23,15 +40,23 @@ public struct QuotaSnapshot: Codable, Equatable {
     public let weekly: QuotaWindow?
     public let fetchedAt: Date
     public let resetCredits: ResetCreditsSummary?
+    public let planType: String?
+    public var isPro: Bool { planType == "pro" }
 
-    public init(fiveHour: QuotaWindow?, weekly: QuotaWindow?, fetchedAt: Date, resetCredits: ResetCreditsSummary? = nil) {
+    public init(fiveHour: QuotaWindow?, weekly: QuotaWindow?, fetchedAt: Date, resetCredits: ResetCreditsSummary? = nil, planType: String? = nil) {
         self.fiveHour = fiveHour
         self.weekly = weekly
         self.fetchedAt = fetchedAt
         self.resetCredits = resetCredits
+        self.planType = planType
     }
 
     public func isFresh(at now: Date) -> Bool { now.timeIntervalSince(fetchedAt) >= -5 && now.timeIntervalSince(fetchedAt) < 150 }
+
+    public func countdown(at now: Date) -> QuotaCountdown? {
+        guard isFresh(at: now) else { return nil }
+        return weekly?.countdown(at: now)
+    }
 }
 
 /// Only fields needed for display are retained; credit IDs and descriptions
@@ -82,6 +107,22 @@ public enum QuotaParser {
         let limitId: String?
         let primary: QuotaWindow?
         let secondary: QuotaWindow?
+        let planType: String?
+        private enum CodingKeys: String, CodingKey { case limitId, primary, secondary, planType }
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            limitId = try values.decodeIfPresent(String.self, forKey: .limitId)
+            primary = try values.decodeIfPresent(QuotaWindow.self, forKey: .primary)
+            secondary = try values.decodeIfPresent(QuotaWindow.self, forKey: .secondary)
+            planType = try? values.decode(String.self, forKey: .planType)
+        }
+    }
+    private struct AccountResponse: Decodable {
+        struct Account: Decodable {
+            let type: String
+            let planType: String?
+        }
+        let account: Account?
     }
     private struct Response: Decodable {
         let rateLimits: Bucket?
@@ -97,7 +138,7 @@ public enum QuotaParser {
         }
     }
 
-    public static func parse(_ data: Data, at now: Date = Date()) throws -> QuotaSnapshot {
+    public static func parse(_ data: Data, accountData: Data? = nil, at now: Date = Date()) throws -> QuotaSnapshot {
         let response = try JSONDecoder().decode(Response.self, from: data)
         let bucket: Bucket
         if let buckets = response.rateLimitsByLimitId, !buckets.isEmpty {
@@ -111,6 +152,9 @@ public enum QuotaParser {
         let fiveHour = windows.first { $0.windowDurationMins == 300 }
         let weekly = windows.first { $0.windowDurationMins == 10080 }
         guard fiveHour != nil || weekly != nil else { throw QuotaParseError.noSupportedWindows }
-        return QuotaSnapshot(fiveHour: fiveHour, weekly: weekly, fetchedAt: now, resetCredits: response.rateLimitResetCredits)
+        // Decode only the account kind and plan; never retain email or credentials.
+        let account = accountData.flatMap { try? JSONDecoder().decode(AccountResponse.self, from: $0) }?.account
+        let planType = bucket.planType ?? (account?.type == "chatgpt" ? account?.planType : nil)
+        return QuotaSnapshot(fiveHour: fiveHour, weekly: weekly, fetchedAt: now, resetCredits: response.rateLimitResetCredits, planType: planType)
     }
 }

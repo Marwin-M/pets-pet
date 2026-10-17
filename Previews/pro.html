@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pet’s Pet · 组件内容</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:32px auto;padding:0 20px;max-width:760px;color:#29384a;background:#f5f6f8}h1{font-size:20px}p{font-size:13px;line-height:1.7;color:#687587}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{border:1px solid #dce2e9;border-radius:14px;overflow:hidden;background:#fff}.stage{display:flex;align-items:center;justify-content:center;min-height:175px;background:#e6edf4}.dark{background:#1c2b40}.stage img{width:288px;height:160px;max-width:100%;object-fit:contain}.caption{margin:0;padding:12px 16px}.actual{display:flex;align-items:center;gap:12px;margin:18px 0;font-size:12px;color:#687587}.actual img{width:144px;height:80px}h2{font-size:14px;margin-top:24px}@media(max-width:540px){.grid{grid-template-columns:1fr}}
+</style>
+<h1>组件内容</h1>
+<label for="content-mode">显示模式 </label><select id="content-mode" aria-label="显示模式">
+  <option value="automatic">自动（按可用额度）</option>
+  <option value="quota">5H＋W 剩余额度</option>
+  <option value="countdown">重置倒计时＋W 剩余额度</option>
+</select>
+<p id="mode-note">评审样本为仅有周额度的 Pro：自动显示蓝色倒计时＋绿色周额度。</p>
+<div class="grid">
+  <div class="card"><div class="stage"><img id="preview-light" src="Assets/pro.png" alt="浅色组件预览"></div><p class="caption">浅色 · 放大预览</p></div>
+  <div class="card"><div class="stage dark"><img id="preview-dark" src="Assets/pro-dark.png" alt="深色组件预览"></div><p class="caption">深色 · 放大预览</p></div>
+</div>
+<div class="actual"><span>桌面尺寸对照</span><img id="native-size" src="Assets/pro.png" alt="按当前显示缩放校准的 Pro 组件，主体 128 × 64 点"></div>
+<h2>兼容场景</h2>
+<div class="grid">
+  <div class="card"><div class="stage"><img src="Assets/pro-with-5h.png" alt="未来 Pro 返回 5H 时：自动显示 66 和 88，保留 PRO 底纹"></div><p class="caption">Pro 返回 5H 时，自动显示 5H＋W。</p></div>
+  <div class="card"><div class="stage"><img src="Assets/plus-countdown.png" alt="Plus 手动选择倒计时：显示 1.2 天和 88%，无 PRO 底纹"></div><p class="caption">Plus 也可选倒计时；不显示 PRO 底纹。</p></div>
+</div>
+<p>以上为 1.4.0 原生组件生成的评审样本，不代表当前账号数据；桌面效果需安装后验收。</p>
+<script>
+// This local review is on a display with one backing pixel per native point.
+// Compensate the embedded browser's page zoom only for the desktop-size sample.
+function matchDesktopSize(){const ratio=1/window.devicePixelRatio;const image=document.getElementById('native-size');image.style.width=144*ratio+'px';image.style.height=80*ratio+'px';}
+matchDesktopSize();window.addEventListener('resize',matchDesktopSize);
+document.getElementById('content-mode').addEventListener('change',event=>{
+  const quota=event.target.value==='quota',name=quota?'pro-forced-quota':'pro';
+  document.getElementById('preview-light').src='Assets/'+name+'.png';
+  document.getElementById('preview-dark').src='Assets/'+name+'-dark.png';
+  document.getElementById('native-size').src='Assets/'+name+'.png';
+  document.getElementById('mode-note').textContent=quota?'评审样本未提供 5H：左侧显示 --，右侧保留周额度。正式应用会记住你的选择。':'评审样本为仅有周额度的 Pro：显示蓝色倒计时＋绿色周额度。正式应用会记住你的选择。';
+});
+</script>
+</html>

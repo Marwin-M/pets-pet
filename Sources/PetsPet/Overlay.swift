@@ -8,6 +8,7 @@ final class DisplayModel: ObservableObject {
     @Published var error: String?
     @Published var now = Date()
     @Published var appearance: AppearancePreference = .system
+    @Published var contentMode: QuotaDisplayMode = .automatic
 }
 
 enum QuotaLayout {
@@ -28,6 +29,10 @@ struct QuotaView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     private var dark: Bool { model.appearance == .dark || model.appearance == .system && colorScheme == .dark }
+    private var isPro: Bool { model.snapshot?.isPro == true }
+    private var showsCountdown: Bool { model.contentMode.resolved(for: model.snapshot) == .countdown }
+    private let green = Color(red: 0.14, green: 0.78, blue: 0.59)
+    private let blue = Color(red: 0.10, green: 0.48, blue: 1)
 
     var body: some View {
         ZStack {
@@ -42,6 +47,14 @@ struct QuotaView: View {
                 .init(color: .black.opacity(0.08), location: 0.76),
                 .init(color: .black.opacity(0.08), location: 1)
             ], startPoint: .leading, endPoint: .trailing))
+            if isPro {
+                Text("PRO")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .tracking(0.3)
+                    .foregroundColor(dark ? .black.opacity(0.35) : .white.opacity(0.28))
+                    .position(x: QuotaLayout.body.width / 2, y: QuotaLayout.body.height / 2)
+                    .accessibilityHidden(true)
+            }
             BetweenRingsCurve()
                 .stroke(LinearGradient(stops: [
                     .init(color: .clear, location: 0),
@@ -55,10 +68,16 @@ struct QuotaView: View {
                     .init(color: .clear, location: 1)
                 ], startPoint: BetweenRingsCurve.gradientStart, endPoint: BetweenRingsCurve.gradientEnd), lineWidth: 1.7)
             HStack(spacing: QuotaLayout.gap) {
-                ring("5H", window: model.snapshot?.fiveHour, color: Color(red: 0.14, green: 0.78, blue: 0.59))
-                ring("W", window: model.snapshot?.weekly, color: Color(red: 0.10, green: 0.48, blue: 1))
+                if showsCountdown {
+                    let countdown = model.error == nil ? model.snapshot?.countdown(at: model.now) : nil
+                    ring(countdown?.daysText ?? "--", fraction: countdown?.elapsedFraction, left: true, color: blue,
+                         label: "距周额度重置 \(countdown.map { "\($0.daysText) 天" } ?? status)")
+                } else {
+                    quotaRing("5H", window: model.snapshot?.fiveHour, left: true, color: green)
+                }
+                quotaRing("W", window: model.snapshot?.weekly, left: false, color: showsCountdown ? green : blue)
             }
-            Text("5H").position(x: QuotaLayout.body.width / 2, y: 11).accessibilityHidden(true)
+            Text(showsCountdown ? "D" : "5H").position(x: QuotaLayout.body.width / 2, y: 11).accessibilityHidden(true)
             Text("W").position(x: QuotaLayout.body.width / 2, y: 53).accessibilityHidden(true)
         }
         .font(.system(size: 9.5, weight: .medium, design: .rounded))
@@ -71,10 +90,15 @@ struct QuotaView: View {
         .frame(width: Self.size.width, height: Self.size.height)
     }
 
-    private func ring(_ name: String, window: QuotaWindow?, color: Color) -> some View {
+    private func quotaRing(_ name: String, window: QuotaWindow?, left: Bool, color: Color) -> some View {
         let fresh = model.snapshot?.isFresh(at: model.now) == true && model.error == nil
         let percent = fresh ? window?.remaining(at: model.now) : nil
-        let mirror: CGFloat = name == "5H" ? -1 : 1
+        return ring(percent.map { "\($0)" } ?? "--", fraction: percent.map { Double($0) / 100 }, left: left, color: color,
+                    label: "\(name == "5H" ? "5 小时" : "周")剩余额度 \(percent.map { "\($0)%" } ?? status)")
+    }
+
+    private func ring(_ text: String, fraction: Double?, left: Bool, color: Color, label: String) -> some View {
+        let mirror: CGFloat = left ? -1 : 1
         return ZStack {
             // The shared base joins the disks through the middle. Only the
             // white track and the quota progress use the open C shape.
@@ -82,8 +106,8 @@ struct QuotaView: View {
                 .stroke(Color.white.opacity(dark ? 0.24 : 0.90), style: StrokeStyle(lineWidth: QuotaLayout.stroke, lineCap: .round))
                 .rotationEffect(.degrees(QuotaLayout.arcStartDegrees))
                 .scaleEffect(x: mirror, y: 1)
-            if let percent, percent > 0 {
-                let length = QuotaLayout.arcFraction * CGFloat(percent) / 100
+            if let fraction, fraction > 0 {
+                let length = QuotaLayout.arcFraction * CGFloat(fraction)
                 // Keep the upper C cap fixed. Only the lower end retreats toward
                 // it as quota falls, including when animating through high values.
                 Circle()
@@ -92,9 +116,9 @@ struct QuotaView: View {
                     .rotationEffect(.degrees(QuotaLayout.arcStartDegrees))
                     .scaleEffect(x: mirror, y: 1)
                     .shadow(color: color.opacity(0.24), radius: 1.3)
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.3), value: percent)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.3), value: fraction)
             }
-            Text(percent.map { "\($0)" } ?? "--")
+            Text(text)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundColor(dark ? Color(red: 0.94, green: 0.97, blue: 1) : Color(red: 0.04, green: 0.10, blue: 0.17))
                 .monospacedDigit()
@@ -103,7 +127,7 @@ struct QuotaView: View {
         }
         .frame(width: QuotaLayout.ring, height: QuotaLayout.ring)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(name == "5H" ? "5 小时" : "周")剩余额度 \(percent.map { "\($0)%" } ?? status)")
+        .accessibilityLabel(label)
     }
 
     private var status: String {
