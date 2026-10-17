@@ -1,0 +1,17 @@
+.build/
+dist/
+历史版本快照/
+.DS_Store
+*.xcodeproj/
+
+# Local collaboration instructions and machine-specific settings
+/AGENTS.md
+/.agents/
+/.codex/
+
+# Local credentials and Python caches
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]

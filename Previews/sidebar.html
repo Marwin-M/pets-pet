@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pet's Pet · 侧栏评审</title>
+<style>
+:root{color-scheme:light;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#292b30;background:#f6f7f9;font-size:14px;--surface:#fff;--border:#dedfe3;--muted:#6d727a;--hover:#eeeff1}
+:root.dark{color:#e9e9ed;background:#151617;--surface:#242528;--border:#3b3d42;--muted:#a1a4ad;--hover:#323439;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0}main{max-width:1050px;padding:44px 32px;margin:auto}h1{font-size:27px;letter-spacing:-.7px;margin:0 0 12px}p{color:var(--muted);line-height:1.7;margin:10px 0 24px}.panel{display:grid;grid-template-columns:330px 1fr;gap:24px}.sidebar,.settings{border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:22px 16px}.sidebar{height:420px;overflow:auto}.eyebrow{font-size:11px;letter-spacing:.06em;color:var(--muted);margin:6px 8px 18px}.project,.thread{display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 8px;border-radius:8px;min-width:0;position:relative}.project{margin-top:14px}.thread{padding-left:26px;cursor:pointer}.thread:hover,.project:hover{background:var(--hover)}.title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.folder{font-size:17px;line-height:1}.metadata{display:flex;align-items:center;gap:6px}.row-action{border:0;background:none;color:var(--muted);padding:2px;cursor:pointer}.project-space{padding-left:26px;color:var(--muted);font-size:12px}.settings{padding:26px}.settings h2{font-size:17px;margin:0 0 20px}label{display:flex;align-items:center;gap:10px;margin:18px 0}input{accent-color:#666;width:16px;height:16px}select,button.control{font:inherit;border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:inherit;background:var(--surface)}button.control{cursor:pointer}.caption{font-size:12px;color:var(--muted);line-height:1.8}.divider{border-top:1px solid var(--border);margin:22px 0}.status{margin:12px 0;color:var(--muted);font-size:12px}details{margin-top:24px;font-size:12px;color:var(--muted)}pre{white-space:pre-wrap;line-height:1.7}.badge{font-size:11px;color:var(--muted);padding:4px 8px;border:1px solid var(--border);border-radius:20px;display:inline-block;margin-bottom:16px}@media(max-width:740px){main{padding:24px 16px}.panel{grid-template-columns:1fr}.sidebar{height:390px}}
+</style></head><body><main>
+<div class="badge">黑白灰色块 · 评审样本</div>
+<h1>对话用量与项目大小</h1><p>色块用深浅表示用量，鼠标悬浮查看累计与输入／缓存／输出 token；项目后按 Finder「大小」口径显示文件内容大小。此页仅使用固定评审样本，不连接账号、不扫描实际目录。</p>
+<div class="panel"><section class="sidebar" aria-label="侧栏评审样本">
+<div class="eyebrow">项目与对话</div>
+<div class="project" data-app-action-sidebar-project-row data-app-action-sidebar-project-id="sample-pets" aria-labelledby="project-pets"><span class="folder" data-sidebar-project-kind="local">▱</span><span class="title" id="project-pets"><span data-marquee-text>Pet's Pet 20261016</span></span><span class="metadata"></span><button class="row-action" aria-label="项目操作">⌄</button></div>
+<div class="thread" data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="local:11111111-1111-4111-8111-111111111111" data-app-action-sidebar-thread-host-id="local" data-app-action-sidebar-thread-kind="local"><span data-thread-title>修复宠物拖拽卡顿</span><button class="row-action" aria-label="对话操作">···</button></div>
+<div class="thread" data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="local:22222222-2222-4222-8222-222222222222" data-app-action-sidebar-thread-host-id="local" data-app-action-sidebar-thread-kind="local"><span data-thread-title>查找软件安装位置</span><button class="row-action" aria-label="对话操作">···</button></div>
+<div class="thread" data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="local:33333333-3333-4333-8333-333333333333" data-app-action-sidebar-thread-host-id="local" data-app-action-sidebar-thread-kind="local"><span data-thread-title>探索组件的神奇功能优化</span><button class="row-action" aria-label="对话操作">···</button></div>
+<div class="thread" data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="local:44444444-4444-4444-8444-444444444444" data-app-action-sidebar-thread-host-id="local" data-app-action-sidebar-thread-kind="local"><span data-thread-title>查找 GitHub Token 进度条插件</span><button class="row-action" aria-label="对话操作">···</button></div>
+<div class="thread" data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="cloud:sample" data-app-action-sidebar-thread-host-id="cloud" data-app-action-sidebar-thread-kind="chatgpt"><span data-thread-title>云端对话 · 无本地记录</span></div>
+<div class="project" data-app-action-sidebar-project-row data-app-action-sidebar-project-id="sample-trip" aria-labelledby="project-trip"><span class="folder" data-sidebar-project-kind="local">✈</span><span class="title" id="project-trip"><span data-marquee-text>旅行</span></span><span class="metadata"></span><button class="row-action" aria-label="项目操作">⌄</button></div>
+<div class="project" data-app-action-sidebar-project-row data-app-action-sidebar-project-id="sample-missing" aria-labelledby="project-missing"><span class="folder" data-sidebar-project-kind="local">▱</span><span class="title" id="project-missing"><span data-marquee-text>无法读取的项目</span></span><span class="metadata"></span><button class="row-action" aria-label="项目操作">⌄</button></div>
+</section><section class="settings"><h2>菜单栏开关示意</h2><label><input type="checkbox" id="tokens" checked>显示对话用量色块</label><label><input type="checkbox" id="projects" checked>显示项目文件夹大小</label><div class="divider"></div><label>外观 <select id="theme"><option value="light">浅色</option><option value="dark">深色</option></select></label><label>数据状态 <select id="state"><option value="ready">正常记录</option><option value="loading">读取中</option><option value="missing">没有记录</option><option value="error">读取失败</option><option value="stale">连接数据过期</option></select></label><p class="caption">目录无法读取时显示 -，悬浮查看原因。输入单列未命中缓存的部分，缓存命中单列，两者与输出相加等于累计总量。统计不代表当前上下文大小或最终账单。实际菜单会记住开关，并展示连接状态。</p><button class="control" id="run">运行页面检查</button><div class="status" id="result" role="status">正在加载正式显示代码…</div></section></div>
+<details><summary>展开页面检查结果</summary><pre id="checks"></pre></details><p class="caption">此预览验证页面显示、开关及交互，不代表已通过真实 Codex 的连接、重启或客户端兼容性验收。</p>
+</main><script>
+// The source is a function expression. Load the same copied production resource as an expression.
+let install; let heartbeat; let checking=false;
+const ids=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','44444444-4444-4444-8444-444444444444'];
+const $=selector=>document.querySelector(selector);
+window.electronBridge={async getInitialSidebarBootstrap(){return {globalStateEntries:[{key:'local-projects',value:{'sample-pets':{rootPaths:['/评审样本/PetsPet']},'sample-trip':{rootPaths:['/评审样本/旅行']},'sample-missing':{rootPaths:[]}}}]}}};
+function snapshot(state='ready'){
+ const checkedAt=Date.now()-(state==='stale'?31000:0);
+ return {tokens:{ok:state!=='error',checkedAt,totals:state==='missing'?{}:Object.fromEntries(ids.map((id,i)=>[id,[2015400,420000,0,201540000][i]])),details:Object.fromEntries(ids.map((id,i)=>[id,[{input:1800000,cached:1200000,output:215400,total:2015400},{input:400000,cached:300000,output:20000,total:420000},{input:0,cached:0,output:0,total:0},{input:180000000,cached:120000000,output:21540000,total:201540000}][i]]))},projects:{ok:state!=='error',checkedAt,sizes:state==='missing'?{'sample-pets':{state:'unavailable'},'sample-trip':{state:'unavailable'}}:{'sample-pets':{state:'ready',bytes:64200000},'sample-trip':{state:'ready',bytes:8200000},'sample-missing':{state:'error',message:'无法读取此项目的本地目录'}}}};
+}
+async function render(){
+ if(!install)return;
+ await install({tokens:$('#tokens').checked,projects:$('#projects').checked});
+ if($('#state').value==='loading'){
+  window.__petsPetSidebar?.destroy();
+  await install({tokens:$('#tokens').checked,projects:$('#projects').checked});
+ }else window.__petsPetSidebar?.update(snapshot($('#state').value));
+}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function waitFor(check){for(let attempt=0;attempt<30&&!check();attempt++)await wait(100)}
+async function runChecks(){
+ if(checking||!install)return;checking=true;clearInterval(heartbeat);$('#run').disabled=true;
+ const results=[];const check=(condition,label)=>{if(!condition)throw Error(label);results.push('通过 · '+label)};
+ const originalNow=Date.now;document.documentElement.classList.remove('dark');
+ try{
+  window.__petsPetSidebar?.destroy();
+  await install({tokens:true,projects:true});
+  window.__petsPetSidebar.update(snapshot());
+  check(document.querySelectorAll('[data-petspet-thread-tokens]').length===5,'对话色块按页面结构插入');
+  check(document.querySelectorAll('[data-petspet-project-size]').length===3,'项目后显示大小');
+  check(document.querySelector('[data-app-action-sidebar-project-id="sample-trip"] [data-petspet-project-size]').textContent==='8.2 MB','十进制大小单位与精度');
+  const sizeBadge=document.querySelector('[data-app-action-sidebar-project-id="sample-trip"] [data-petspet-project-size]');
+  for(const [bytes,label] of [[0,'0 B'],[999,'999 B'],[1000,'1 KB'],[1000000,'1 MB'],[729174016,'729.2 MB'],[653924734,'653.9 MB'],[931056312,'931.1 MB'],[1000000000,'1 GB']]){
+   const sample=snapshot();sample.projects.sizes['sample-trip'].bytes=bytes;window.__petsPetSidebar.update(sample);
+   check(sizeBadge.textContent===label,`目录大小换算 ${bytes} 字节 → ${label}`);
+  }
+  check(sizeBadge.title.includes('1 MB = 1,000,000 字节')&&sizeBadge.title.includes('Finder「大小」')&&sizeBadge.title.includes('1,000,000,000 字节'),'目录提示说明单位、Finder口径与精确字节');
+  window.__petsPetSidebar.update(snapshot());
+  check(document.querySelector('[data-app-action-sidebar-project-id="sample-missing"] [data-petspet-project-size]').textContent==='-','目录无法读取显示 -');
+  const first=$('[data-app-action-sidebar-thread-row]'), originalId=first.getAttribute('data-app-action-sidebar-thread-id');
+  let badge=first.querySelector('[data-petspet-thread-tokens]');
+  check(badge.getAttribute('data-petspet-hint').includes('输入（未命中缓存）：60万')&&badge.getAttribute('data-petspet-hint').includes('缓存命中：120万')&&badge.getAttribute('data-petspet-hint').includes('输出：21.54万'),'悬浮分别展示未命中输入、缓存和输出');
+  check(!badge.getAttribute('data-petspet-hint').includes('精确记录'),'移除精确记录行');
+  const withoutDetails=snapshot();delete withoutDetails.tokens.details;window.__petsPetSidebar.update(withoutDetails);
+  check(badge.getAttribute('data-petspet-hint').includes('明细暂不可用')&&badge.dataset.state==='ready','缺少明细时保留真实总量');
+  const mismatched=snapshot();mismatched.tokens.details[ids[0]].total=1;window.__petsPetSidebar.update(mismatched);
+  check(badge.getAttribute('data-petspet-hint').includes('明细暂不可用'),'明细与总量不一致时不展示错配');
+  window.__petsPetSidebar.update(snapshot());
+  const shades=[...document.querySelectorAll('[data-petspet-thread-tokens]')].slice(0,4).map(el=>el.style.getPropertyValue('--petspet-shade'));
+  check(shades.every(color=>/^#([a-f\d]{2})\1\1$/i.test(color)),'全部色块使用黑白灰色阶');
+  const lightTone=badge.style.getPropertyValue('--petspet-shade');
+  document.documentElement.classList.add('dark');await waitFor(()=>badge.style.getPropertyValue('--petspet-shade')!==lightTone);
+  check(badge.style.getPropertyValue('--petspet-shade')!==lightTone,'深色外观使用反向明暗层级');
+  document.documentElement.classList.remove('dark');await waitFor(()=>badge.style.getPropertyValue('--petspet-shade')===lightTone);
+  check(document.querySelectorAll('[data-petspet-thread-tokens]')[2].dataset.state==='ready','真实零值与无记录区分');
+  check(document.querySelectorAll('[data-petspet-thread-tokens]')[4].dataset.state==='unknown','云端不套用本地用量');
+  const r=badge.getBoundingClientRect();
+  check(badge.isConnected&&badge===first.querySelector('[data-petspet-thread-tokens]'),'更新明细和主题时保留对应色块元素');
+  badge.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2,pointerType:'mouse'}));
+  for(let attempt=0;attempt<15&&$('#petspet-thread-tokens-tooltip').hidden;attempt++)await wait(40);
+  check(!$('#petspet-thread-tokens-tooltip').hidden,'鼠标悬浮显示提示');
+  $('.sidebar').dispatchEvent(new Event('scroll',{bubbles:true}));
+  check($('#petspet-thread-tokens-tooltip').hidden,'侧栏滚动清理提示');
+  first.setAttribute('data-app-action-sidebar-thread-id','local:55555555-5555-4555-8555-555555555555');await waitFor(()=>badge.dataset.state==='unknown');
+  check(badge.dataset.state==='unknown','复用对话行时不会串用量');
+  first.setAttribute('data-app-action-sidebar-thread-id',originalId);await waitFor(()=>badge.dataset.state==='ready');
+  await install({tokens:false,projects:true});
+  check(!document.querySelector('[data-petspet-thread-tokens]')&&!!document.querySelector('[data-petspet-project-size]'),'仅关闭色块');
+  await install({tokens:true,projects:false});
+  check(!!document.querySelector('[data-petspet-thread-tokens]')&&!document.querySelector('[data-petspet-project-size]'),'仅关闭项目大小');
+  window.__petsPetSidebar.update(snapshot('error'));
+  check(first.querySelector('[data-petspet-thread-tokens]').dataset.state==='unknown','读取失败不冒充零');
+  window.__petsPetSidebar.update(snapshot('stale'));
+  check(first.querySelector('[data-petspet-thread-tokens]').dataset.state==='stale','旧数据提示过期');
+  await install({tokens:true,projects:true});
+  await install({tokens:true,projects:true});
+  check(document.querySelectorAll('[data-petspet-thread-tokens]').length===5&&document.querySelectorAll('[data-petspet-project-size]').length===3,'重复刷新保持单份显示');
+  window.__petsPetSidebar.destroy();
+  check(!document.querySelector('[data-petspet-sidebar-owned]'),'关闭清理自身元素和样式');
+  await install({tokens:true,projects:true});
+  Date.now=()=>originalNow()+31001;await wait(1150);Date.now=originalNow;
+  check(!window.__petsPetSidebar&&!document.querySelector('[data-petspet-thread-tokens]')&&!document.querySelector('[data-petspet-project-size]'),'连接租期到期自动清理全部元素');
+  $('#result').textContent=`页面检查通过：${results.length} 项`;
+ }catch(error){$('#result').textContent='页面检查失败：'+error.message;results.push('失败 · '+error.message)}
+ finally{Date.now=originalNow;document.documentElement.classList.toggle('dark',$('#theme').value==='dark');$('#checks').textContent=results.join('\n');checking=false;$('#run').disabled=false;await render();heartbeat=setInterval(()=>{if(!checking)render()},5000)}
+}
+document.querySelectorAll('input,select').forEach(el=>el.addEventListener('change',()=>{$('html').classList.toggle('dark',$('#theme').value==='dark');render()}));
+$('#run').addEventListener('click',runChecks);
+fetch('Assets/sidebar.js',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('资源加载失败');return r.text()}).then(source=>{install=(0,eval)(source);return render()}).then(()=>runChecks()).catch(e=>$('#result').textContent=e.message);
+</script></body></html>
