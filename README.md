@@ -6,7 +6,7 @@
 
 **[下载应用](https://github.com/Marwin-M/pets-pet/releases/latest)** · [1.4.1 更新说明](Releases/1.4.1.md) · [反馈问题](https://github.com/Marwin-M/pets-pet/issues)
 
-本地最新交付版本为 **1.4.1**；公开下载以 GitHub Releases 已发布版本为准。
+当前版本为 **1.4.1**，安装包、源码和更新说明见 GitHub Releases。
 
 ## 功能
 
@@ -37,7 +37,7 @@
 
 ## 下载与安装
 
-1. 打开 [最新下载页](https://github.com/Marwin-M/pets-pet/releases/latest)，在 **Assets** 下载对应版本的 `PetsPet-<版本号>.zip`；1.4.1 本地安装包位于 `dist/releases/1.4.1/`，尚未同步 GitHub。仅使用应用时，不需要下载 Source code 或 `-source.zip`。
+1. 打开 [最新下载页](https://github.com/Marwin-M/pets-pet/releases/latest)，在 **Assets** 下载 `PetsPet-1.4.1.zip`。仅使用应用时，不需要下载 Source code 或 `-source.zip`。
 2. 解压，将 `PetsPet.app` 放到「应用程序」文件夹。先确定安装位置，再授权和打开；升级前请先自行退出旧版。
 3. 当前包使用本地临时签名，**尚未经过 Apple 公证**。若系统提示无法验证开发者，请先确认下载来源及校验值，再按 [Apple 官方说明](https://support.apple.com/zh-cn/102445)，在「系统设置 → 隐私与安全性」中确认是否仍要打开。不需要关闭系统安全保护。
 4. 首次运行时打开辅助功能设置，在「隐私与安全性 → 辅助功能」中允许 **PetsPet**。升级后如果开关已开但应用仍提示未授权，请移除旧条目并重新添加当前安装位置的应用。
@@ -72,7 +72,7 @@ shasum -a 256 PetsPet-1.4.1.zip
 
 ## 已知限制与验证范围
 
-- 当前本地交付包是 1.4.1、内部构建 17，使用本地临时签名，尚未做 Apple 公证。
+- 当前发布包是 1.4.1、内部构建 17，使用本地临时签名，尚未做 Apple 公证。
 - 本机已完成构建、签名及包校验，并运行核心规则、侧栏读取与连接生命周期检查；测试中的固定样本不进入正式数据读取。
 - 其他人的 Mac、其他 macOS／Codex 版本尚未验收。多屏、透明窗口遮挡、快速拖动、睡眠恢复及真实侧栏连接仍需实机验证；自动化检查不代表这些场景均已通过。
 - 组件位置依赖辅助功能树；权限不足、宠物未显示或无法唯一识别时，组件不会凭空显示。

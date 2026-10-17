@@ -1,10 +1,10 @@
 # 版本更新日志
 
-每个正式版本只记录最终结果，保留一份最终安装包；同版本调整合并到该版本日志。当前本地交付版本为 **1.4.1**，GitHub 最新已发布版本为 **1.4.0**。公开下载见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases)。旧版说明保留作历史记录，未发布到 GitHub 的安装包不提供公开下载链接。
+每个正式版本只记录最终结果，保留一份最终安装包；同版本调整合并到该版本日志。当前版本为 **1.4.1**。公开下载见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases)。旧版说明保留作历史记录，未发布到 GitHub 的安装包不提供公开下载链接。
 
 | 版本 | 日期 | 主要变化 | 最终安装包 |
 | --- | --- | --- | --- |
-| [1.4.1](1.4.1.md) | 2026-10-17 | 今日 Token 官方每日统计、菜单分组与状态更新 | 本地留档，尚未上传 |
+| [1.4.1](1.4.1.md) | 2026-10-17 | 今日 Token 官方每日统计、菜单分组与状态更新 | [下载](https://github.com/Marwin-M/pets-pet/releases/download/v1.4.1/PetsPet-1.4.1.zip) |
 | [1.4.0](1.4.0.md) | 2026-10-17 | 可配置自动／5H＋W／倒计时＋W，套餐识别与 PRO 底纹，兼容未来额度周期变化 | [下载](https://github.com/Marwin-M/pets-pet/releases/download/v1.4.0/PetsPet-1.4.0.zip) |
 | [1.3.0](1.3.0.md) | 2026-10-17 | 黑白灰对话用量与明细、按 Finder 口径统计项目大小；修复点击容差，恢复菜单手动连接并去掉断连自动检测 | [下载](https://github.com/Marwin-M/pets-pet/releases/download/v1.3.0/PetsPet-1.3.0.zip) |
 | [1.2.3](1.2.3.md) | 2026-10-16 | 修正深层卡片扫描截断与透明留白，收起／展开／上方位置均已用户实测确认 | 本地历史留档，暂未上传 |
