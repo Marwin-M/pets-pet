@@ -26,6 +26,46 @@ struct PreviewRenderer {
                 weekly: QuotaWindow(usedPercent: weekly, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(days.map { $0 * 86400 } ?? 200000).timeIntervalSince1970), fetchedAt: now, resetCredits: sampleCards, planType: planType)
             return value
         }
+        if CommandLine.arguments.contains("--menu") {
+            let date = DateFormatter()
+            date.locale = Locale(identifier: "en_US_POSIX"); date.calendar = Calendar(identifier: .gregorian)
+            date.dateFormat = "yyyy-MM-dd"
+            let usage = try DailyTokenUsageParser.parse(JSONSerialization.data(withJSONObject: [
+                "dailyUsageBuckets": [["startDate": date.string(from: now), "tokens": 1234567]]
+            ]), at: now)
+            let time = DateFormatter(); time.timeStyle = .medium
+            let sample: [String: Any] = [
+                "sample": true,
+                "rows": QuotaMenu.rows(snapshot: model(34, 12).snapshot, dailyUsage: usage, at: now),
+                "updated": "数据更新于：\(time.string(from: now))",
+                "dailyTip": DailyTokenUsageMenu(snapshot: usage, at: now).toolTip
+            ]
+            try JSONSerialization.data(withJSONObject: sample, options: [.prettyPrinted, .sortedKeys]).write(to: output.appendingPathComponent("menu-layout.json"), options: .atomic)
+            let info = try Data(contentsOf: URL(fileURLWithPath: "Resources/Info.plist"))
+            let version = (try PropertyListSerialization.propertyList(from: info, format: nil) as? [String: Any])?["CFBundleShortVersionString"] as? String ?? ""
+            let rows = sample["rows"] as? [String] ?? []
+            // A compact menu-layout illustration, using the same real row formatter.
+            // This is review artwork, not a screenshot of a running application.
+            try write(VStack(alignment: .leading, spacing: 8) {
+                Text("Pet’s Pet · \(version)").foregroundStyle(.secondary)
+                Text("正在跟随宠物").foregroundStyle(.secondary)
+                Divider()
+                ForEach(rows, id: \.self) { Text($0) }
+                Text(sample["updated"] as? String ?? "").foregroundStyle(.secondary)
+                Text("立即刷新")
+                Divider()
+                ForEach(["显示设置", "侧栏连接（已连接）", "工具与诊断"], id: \.self) { title in
+                    HStack { Text(title); Spacer(); Image(systemName: "chevron.right") }
+                }
+                Divider()
+                Text("退出 Pet’s Pet")
+            }.font(.system(size: 13)).foregroundStyle(Color(red: 0.15, green: 0.17, blue: 0.2))
+                .padding(14).frame(width: 340, alignment: .leading)
+                .background(Color(red: 0.92, green: 0.93, blue: 0.94)).clipShape(RoundedRectangle(cornerRadius: 12)),
+                to: output.appendingPathComponent("menu.png"))
+            print("Updated menu review sample; app bundle unchanged.")
+            return
+        }
         if CommandLine.arguments.contains("--pro") {
             let error = model(nil, 12, planType: "pro", days: 1.2)
             error.error = "预览：查询失败"

@@ -8,6 +8,10 @@ import PetsPetCore
     private let monitor = PetMonitor()
     private let petClicks = PetClickMonitor()
     private let quota = QuotaClient()
+    private let dailyUsageClient = QuotaClient()
+    private var dailyUsage: DailyTokenUsageSnapshot?
+    private var dailyLoading = false
+    private var lastDailyAttempt = Date.distantPast
     private let sidebar = SidebarController()
     private var store: SupportStore?
     private var overlay: OverlayController!
@@ -28,6 +32,15 @@ import PetsPetCore
     private var suspended = false
     private var componentEnabled = true
     private var componentMenuItem: NSMenuItem?
+    private weak var openMenu: NSMenu?
+    private var dataMenuItems: [NSMenuItem] = []
+    private var updatedMenuItem: NSMenuItem?
+    private var dataStatusItem: NSMenuItem?
+    private var refreshMenuItem: NSMenuItem?
+    private var connectionMenuItem: NSMenuItem?
+    private var connectionStatusItem: NSMenuItem?
+    private var connectionTokenItem: NSMenuItem?
+    private var enableConnectionItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -85,7 +98,7 @@ import PetsPetCore
         Task { await sidebar.shutdown(); NSApp.reply(toApplicationShouldTerminate: true) }
         return .terminateLater
     }
-    func applicationWillTerminate(_ notification: Notification) { petClicks.stop(); monitor.stop(); quota.stop(); clock?.invalidate(); overlay?.hide() }
+    func applicationWillTerminate(_ notification: Notification) { petClicks.stop(); monitor.stop(); quota.stop(); dailyUsageClient.stop(); clock?.invalidate(); overlay?.hide() }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showSetup(); return true }
 
     private func receive(_ next: PetState) {
@@ -127,6 +140,7 @@ import PetsPetCore
 
     private func updateStatusHint() {
         statusItem.button?.toolTip = "Pet's Pet — \(state.phase)\n\(sidebar.status)"
+        updateOpenConnectionMenu()
     }
 
     private func updateOverlay() -> CGRect? {
@@ -153,54 +167,61 @@ import PetsPetCore
     }
 
     @objc private func fetch() {
-        guard !fetching else { return }
-        fetching = true
-        lastFetch = Date()
-        model.loading = true
-        quota.refresh { [weak self] result in
-            guard let self else { return }
-            self.fetching = false
-            self.model.loading = false
-            switch result {
-            case .success(let snapshot): self.model.snapshot = snapshot; self.model.error = nil
-            case .failure(let error): self.model.snapshot = nil; self.model.error = error.localizedDescription
+        if !fetching {
+            fetching = true
+            lastFetch = Date()
+            model.loading = true
+            quota.refresh { [weak self] result in
+                guard let self else { return }
+                self.fetching = false
+                self.model.loading = false
+                switch result {
+                case .success(let snapshot): self.model.snapshot = snapshot; self.model.error = nil
+                case .failure(let error): self.model.snapshot = nil; self.model.error = error.localizedDescription
+                }
+                self.store?.record(["event": "quota", "available": self.model.error == nil], event: true)
+                self.updateOpenDataMenu()
             }
-            self.store?.record(["event": "quota", "available": self.model.error == nil], event: true)
         }
+        if !dailyLoading {
+            dailyLoading = true
+            lastDailyAttempt = Date()
+            // Separate clients keep unsupported daily statistics from blocking quota reads.
+            dailyUsageClient.refreshDailyUsage { [weak self] result in
+                guard let self else { return }
+                self.dailyLoading = false
+                switch result {
+                case .success(let snapshot): self.dailyUsage = snapshot
+                case .failure: self.dailyUsage = nil
+                }
+                self.updateOpenDataMenu()
+            }
+        }
+        updateOpenDataMenu()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        if !fetching && (model.snapshot == nil || model.snapshot?.isFresh(at: Date()) == false || model.snapshot?.resetCredits?.needsRefresh(at: Date()) == true) { fetch() }
+        let now = Date()
+        let quotaNeedsRefresh = model.snapshot == nil || model.snapshot?.isFresh(at: now) == false || model.snapshot?.resetCredits?.needsRefresh(at: now) == true
+        let dailyNeedsRefresh = (dailyUsage == nil || dailyUsage?.isFresh(at: now) == false) && now.timeIntervalSince(lastDailyAttempt) >= 60
+        if (!fetching && quotaNeedsRefresh) || (!dailyLoading && dailyNeedsRefresh) { fetch() }
         menu.removeAllItems()
+        openMenu = menu
         label("Pet's Pet · \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")", in: menu, secondary: true)
         label(state.phase, in: menu, secondary: true)
         menu.addItem(.separator())
-        item("显示额度组件", #selector(toggleComponentFromMenu), in: menu)
-        componentMenuItem = menu.items.last
+        dataMenuItems = (0..<5).map { _ in label("", in: menu) }
+        updatedMenuItem = label("", in: menu, secondary: true)
+        dataStatusItem = label("", in: menu, secondary: true)
+        item("立即刷新", #selector(fetch), in: menu)
+        refreshMenuItem = menu.items.last
+        menu.addItem(.separator())
+
+        let display = submenu("显示设置", in: menu)
+        item("显示额度组件", #selector(toggleComponentFromMenu), in: display)
+        componentMenuItem = display.items.last
         componentMenuItem?.state = componentEnabled ? .on : .off
-        menu.addItem(.separator())
-        item(sidebar.needsConnection && sidebar.tokensEnabled ? "显示对话用量色块（待连接）" : "显示对话用量色块", #selector(toggleSidebarTokens), in: menu)
-        menu.items.last?.state = sidebar.tokensEnabled ? .on : .off
-        item(sidebar.needsConnection && sidebar.projectsEnabled ? "显示项目文件夹大小（待连接）" : "显示项目文件夹大小", #selector(toggleProjectSizes), in: menu)
-        menu.items.last?.state = sidebar.projectsEnabled ? .on : .off
-        label(sidebar.status, in: menu, secondary: true)
-        if !sidebar.tokenStatus.isEmpty { label(sidebar.tokenStatus, in: menu, secondary: true) }
-        item("启用侧栏连接…", #selector(enableSidebarConnection), in: menu)
-        menu.items.last?.isEnabled = !sidebar.opening && !sidebar.connected && (sidebar.tokensEnabled || sidebar.projectsEnabled)
-        menu.addItem(.separator())
-        if model.loading { label("正在读取额度…", in: menu, secondary: true) }
-        if let error = model.error { label(error, in: menu) }
-        for row in QuotaMenu.rows(snapshot: model.error == nil ? model.snapshot : nil, mode: model.contentMode.resolved(for: model.snapshot), at: Date()) { label(row, in: menu) }
-        if let fetched = model.snapshot?.fetchedAt {
-            let formatter = DateFormatter(); formatter.timeStyle = .medium
-            label("额度更新于 \(formatter.string(from: fetched))", in: menu, secondary: true)
-        }
-        menu.addItem(.separator())
-        item("立即刷新额度", #selector(fetch), in: menu)
-        menu.items.last?.isEnabled = !fetching
-        let content = NSMenuItem(title: "组件内容", action: nil, keyEquivalent: "")
-        let contentChoices = NSMenu()
-        contentChoices.autoenablesItems = false
+        let contentChoices = submenu("组件内容", in: display)
         for choice in QuotaDisplayMode.allCases {
             let option = NSMenuItem(title: choice.title, action: #selector(selectContentMode(_:)), keyEquivalent: "")
             option.target = self
@@ -208,11 +229,7 @@ import PetsPetCore
             option.state = choice == model.contentMode ? .on : .off
             contentChoices.addItem(option)
         }
-        content.submenu = contentChoices
-        menu.addItem(content)
-        let appearance = NSMenuItem(title: "外观", action: nil, keyEquivalent: "")
-        let choices = NSMenu()
-        choices.autoenablesItems = false
+        let choices = submenu("外观", in: display)
         for choice in AppearancePreference.allCases {
             let option = NSMenuItem(title: choice.title, action: #selector(selectAppearance(_:)), keyEquivalent: "")
             option.target = self
@@ -220,14 +237,76 @@ import PetsPetCore
             option.state = choice == model.appearance ? .on : .off
             choices.addItem(option)
         }
-        appearance.submenu = choices
-        menu.addItem(appearance)
-        menu.addItem(.separator())
-        item("权限与检测状态…", #selector(showSetup), in: menu)
-        item("重新检测宠物", #selector(rescan), in: menu)
-        item("打开本地诊断文件夹", #selector(openDiagnostics), in: menu)
+        display.addItem(.separator())
+        item("显示对话用量色块", #selector(toggleSidebarTokens), in: display)
+        display.items.last?.state = sidebar.tokensEnabled ? .on : .off
+        item("显示项目文件夹大小", #selector(toggleProjectSizes), in: display)
+        display.items.last?.state = sidebar.projectsEnabled ? .on : .off
+
+        let connection = submenu("侧栏连接", in: menu)
+        connectionMenuItem = menu.items.last
+        connectionStatusItem = label("", in: connection, secondary: true)
+        connectionTokenItem = label("", in: connection, secondary: true)
+        connection.addItem(.separator())
+        item("启用侧栏连接…", #selector(enableSidebarConnection), in: connection)
+        enableConnectionItem = connection.items.last
+
+        let tools = submenu("工具与诊断", in: menu)
+        item("权限与检测状态…", #selector(showSetup), in: tools)
+        item("重新检测宠物", #selector(rescan), in: tools)
+        item("打开本地诊断文件夹", #selector(openDiagnostics), in: tools)
         menu.addItem(.separator())
         item("退出 Pet's Pet", #selector(quit), in: menu, key: "q")
+        updateOpenDataMenu()
+        updateOpenConnectionMenu()
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        openMenu = nil
+        dataMenuItems = []
+        updatedMenuItem = nil; dataStatusItem = nil; refreshMenuItem = nil
+        connectionMenuItem = nil; connectionStatusItem = nil; connectionTokenItem = nil; enableConnectionItem = nil
+        componentMenuItem = nil
+    }
+
+    private func updateOpenDataMenu() {
+        guard openMenu != nil else { return }
+        let now = Date()
+        let rows = QuotaMenu.rows(snapshot: model.error == nil ? model.snapshot : nil, mode: model.contentMode.resolved(for: model.snapshot), dailyUsage: dailyUsage, dailyLoading: dailyLoading, at: now)
+        for (item, row) in zip(dataMenuItems, rows) { setLabel(row, on: item) }
+        dataMenuItems[2].toolTip = DailyTokenUsageMenu(snapshot: dailyUsage, loading: dailyLoading, at: now).toolTip
+        let formatter = DateFormatter(); formatter.timeStyle = .medium
+        let dates = [model.snapshot?.fetchedAt, dailyUsage?.fetchedAt].compactMap { $0 }
+        let updated = dates.min().map { formatter.string(from: $0) } ?? "--"
+        if let item = updatedMenuItem {
+            setLabel("数据更新于：\(updated)", on: item, secondary: true)
+            item.toolTip = "额度：\(model.snapshot.map { formatter.string(from: $0.fetchedAt) } ?? "暂不可用")\n每日 Token：\(dailyUsage.map { formatter.string(from: $0.fetchedAt) } ?? "暂不可用")"
+        }
+        if let item = dataStatusItem {
+            let status = model.error ?? (fetching ? "正在读取额度…" : "")
+            setLabel(status, on: item, secondary: true)
+            item.isHidden = status.isEmpty
+        }
+        refreshMenuItem?.isEnabled = !fetching && !dailyLoading
+    }
+
+    private func updateOpenConnectionMenu() {
+        guard openMenu != nil else { return }
+        connectionMenuItem?.title = "侧栏连接（\(sidebar.connected ? "已连接" : "未连接")）"
+        if let item = connectionStatusItem { setLabel(sidebar.status, on: item, secondary: true) }
+        if let item = connectionTokenItem {
+            setLabel(sidebar.tokenStatus, on: item, secondary: true)
+            item.isHidden = sidebar.tokenStatus.isEmpty
+        }
+        enableConnectionItem?.isEnabled = !sidebar.opening && !sidebar.connected && (sidebar.tokensEnabled || sidebar.projectsEnabled)
+    }
+
+    private func submenu(_ title: String, in menu: NSMenu) -> NSMenu {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let child = NSMenu(); child.autoenablesItems = false
+        item.submenu = child
+        menu.addItem(item)
+        return child
     }
     @objc private func toggleSidebarTokens() { sidebar.setTokens(!sidebar.tokensEnabled) }
     @objc private func toggleProjectSizes() { sidebar.setProjects(!sidebar.projectsEnabled) }
@@ -261,14 +340,19 @@ import PetsPetCore
         monitor.rescan()
         sidebar.clientDidChange()
     }
-    private func label(_ title: String, in menu: NSMenu, secondary: Bool = false) {
+    @discardableResult private func label(_ title: String, in menu: NSMenu, secondary: Bool = false) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
+        setLabel(title, on: item, secondary: secondary)
+        menu.addItem(item)
+        return item
+    }
+    private func setLabel(_ title: String, on item: NSMenuItem, secondary: Bool = false) {
+        item.title = title
         // Explicit semantic colors keep read-only information legible without
         // turning it into a clickable action. The system still draws the menu.
         let color = secondary ? NSColor.secondaryLabelColor : NSColor.labelColor.withAlphaComponent(0.82)
         item.attributedTitle = NSAttributedString(string: title, attributes: [.foregroundColor: color])
-        menu.addItem(item)
     }
     private func item(_ title: String, _ action: Selector, in menu: NSMenu, key: String = "") { let item = NSMenuItem(title: title, action: action, keyEquivalent: key); item.target = self; menu.addItem(item) }
     @objc private func rescan() {

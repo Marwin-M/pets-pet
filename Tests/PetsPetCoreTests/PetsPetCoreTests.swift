@@ -368,34 +368,34 @@ final class Version120Tests {
 
     func testCardCountIsAuthoritativeAndPartialExpiryIsLabelled() throws {
         let display = try rows(["availableCount": 5, "credits": [card(now.timeIntervalSince1970 + 3600)]])
-        expectEqual(display[2], "重置卡：5 张")
-        expectTrue(display[3].hasPrefix("已知最近到期："))
+        expectEqual(display[3], "重置卡：5 张")
+        expectTrue(display[4].hasPrefix("已知最近到期："))
         let complete = try rows(["availableCount": 2, "credits": [card(now.timeIntervalSince1970 + 7200), card(now.timeIntervalSince1970 + 3600)]])
-        expectEqual(complete[3], "最近到期：11/14 23:13")
+        expectEqual(complete[4], "最近到期：11/14 23:13")
         let countOnly = try rows(["availableCount": 3, "credits": NSNull()])
-        expectEqual(countOnly[2], "重置卡：3 张")
-        expectEqual(countOnly[3], "最近到期：未提供")
+        expectEqual(countOnly[3], "重置卡：3 张")
+        expectEqual(countOnly[4], "最近到期：未提供")
     }
 
     func testUnknownCardsAreNeverReportedAsZero() throws {
-        expectEqual(try rows(NSNull())[2], "重置卡：暂不可用")
-        expectEqual(try rows(["availableCount": 0, "credits": []])[2], "重置卡：0 张")
-        expectEqual(try rows(["availableCount": -1])[2], "重置卡：暂不可用")
+        expectEqual(try rows(NSNull())[3], "重置卡：暂不可用")
+        expectEqual(try rows(["availableCount": 0, "credits": []])[3], "重置卡：0 张")
+        expectEqual(try rows(["availableCount": -1])[3], "重置卡：暂不可用")
         let malformed = try snapshot(["availableCount": "3"])
         expectEqual(malformed.fiveHour?.remaining(at: now), 80)
         expectNil(malformed.resetCredits)
-        expectEqual(try rows(["availableCount": 3, "credits": ["invalid"]])[2], "重置卡：3 张")
-        expectEqual(try rows(["availableCount": 2, "credits": []])[3], "最近到期：未提供")
+        expectEqual(try rows(["availableCount": 3, "credits": ["invalid"]])[3], "重置卡：3 张")
+        expectEqual(try rows(["availableCount": 2, "credits": []])[4], "最近到期：未提供")
     }
 
     func testExpiredAndStaleCardDataRequireRefresh() throws {
         let cards: [String: Any] = ["availableCount": 1, "credits": [card(now.timeIntervalSince1970 + 30)]]
-        expectEqual(try rows(cards, at: now.addingTimeInterval(31))[2], "重置卡：等待刷新")
-        expectEqual(try rows(cards, at: now.addingTimeInterval(151))[2], "重置卡：等待刷新")
-        expectEqual(try rows(["availableCount": 1, "credits": [card(NSNull())]])[3], "最近到期：无到期限制")
+        expectEqual(try rows(cards, at: now.addingTimeInterval(31))[3], "重置卡：等待刷新")
+        expectEqual(try rows(cards, at: now.addingTimeInterval(151))[3], "重置卡：等待刷新")
+        expectEqual(try rows(["availableCount": 1, "credits": [card(NSNull())]])[4], "最近到期：无到期限制")
         let redeemed: [String: Any] = ["availableCount": 1, "credits": [card(now.timeIntervalSince1970 - 1, status: "redeemed")]]
-        expectEqual(try rows(redeemed)[3], "最近到期：未提供")
-        expectEqual(try rows(["availableCount": 1, "credits": [card(NSNull(), type: "unknown")]])[3], "最近到期：未提供")
+        expectEqual(try rows(redeemed)[4], "最近到期：未提供")
+        expectEqual(try rows(["availableCount": 1, "credits": [card(NSNull(), type: "unknown")]])[4], "最近到期：未提供")
     }
 
     func testAppearanceFallback() {
@@ -691,8 +691,88 @@ final class TrackingCadenceTests {
     }
 }
 
+final class DailyTokenUsageTests {
+    let utc = TimeZone(secondsFromGMT: 0)!
+    let now = ISO8601DateFormatter().date(from: "2026-10-17T15:59:30Z")!
+    func parse(_ buckets: String, at date: Date? = nil) throws -> DailyTokenUsageSnapshot {
+        try DailyTokenUsageParser.parse(Data("{\"dailyUsageBuckets\":\(buckets)}".utf8), at: date ?? now)
+    }
+    func title(_ snapshot: DailyTokenUsageSnapshot?, loading: Bool = false, at date: Date? = nil, zone: TimeZone? = nil) -> String {
+        DailyTokenUsageMenu(snapshot: snapshot, loading: loading, at: date ?? now, timeZone: zone ?? utc).title
+    }
+    func testOfficialTotalAndExplicitZero() throws {
+        let snapshot = try parse(#"[{"startDate":"2026-10-16","tokens":99},{"startDate":"2026-10-17","tokens":1234567}]"#)
+        expectEqual(title(snapshot), "今日 Token：1,234,567")
+        expectEqual(title(try parse(#"[{"startDate":"2026-10-17","tokens":0}]"#)), "今日 Token：0")
+        expectEqual(title(try parse(#"[{"startDate":"2026-10-17","tokens":9223372036854775807}]"#)), "今日 Token：9,223,372,036,854,775,807")
+        let tip = DailyTokenUsageMenu(snapshot: snapshot, at: now, timeZone: utc).toolTip
+        expectTrue(tip.contains("2026-10-17"))
+        expectTrue(tip.contains("官方未说明日界线时区"))
+    }
+    func testMissingAndLoadingNeverInventZero() throws {
+        expectEqual(title(nil), "今日 Token：暂不可用")
+        expectEqual(title(nil, loading: true), "今日 Token：读取中…")
+        for json in ["{}", #"{"dailyUsageBuckets":null}"#, #"{"dailyUsageBuckets":[]}"#, #"{"dailyUsageBuckets":[{"startDate":"2026-10-16","tokens":99}]}"#] {
+            let snapshot = try DailyTokenUsageParser.parse(Data(json.utf8), at: now)
+            expectEqual(title(snapshot), "今日 Token：暂不可用")
+        }
+    }
+    func testFreshnessAndMidnightUseSelectedDate() throws {
+        let snapshot = try parse(#"[{"startDate":"2026-10-17","tokens":42}]"#)
+        expectEqual(title(snapshot, loading: true), "今日 Token：42")
+        expectEqual(title(snapshot, at: now.addingTimeInterval(150)), "今日 Token：等待刷新")
+        expectEqual(title(snapshot, at: now.addingTimeInterval(-6)), "今日 Token：等待刷新")
+        expectEqual(title(snapshot, loading: true, at: now.addingTimeInterval(150)), "今日 Token：读取中…")
+        let shanghai = TimeZone(secondsFromGMT: 8 * 3600)!
+        expectEqual(title(snapshot, zone: shanghai), "今日 Token：42")
+        expectEqual(title(snapshot, at: now.addingTimeInterval(31), zone: shanghai), "今日 Token：暂不可用")
+        let boundary = ISO8601DateFormatter().date(from: "2026-12-31T16:00:00Z")!
+        let year = try parse(#"[{"startDate":"2026-12-31","tokens":12},{"startDate":"2027-01-01","tokens":34}]"#, at: boundary)
+        expectEqual(title(year, at: boundary), "今日 Token：12")
+        expectEqual(title(year, at: boundary, zone: shanghai), "今日 Token：34")
+    }
+    func testMalformedBucketsFailSafely() {
+        for buckets in [
+            #"[{"startDate":"2026-02-30","tokens":1}]"#,
+            #"[{"startDate":"2026-2-03","tokens":1}]"#,
+            #"[{"startDate":"2026-10-17","tokens":-1}]"#,
+            #"[{"startDate":"2026-10-17","tokens":1},{"startDate":"2026-10-17","tokens":2}]"#,
+            #"[{"startDate":"2026-10-17","tokens":null}]"#,
+            #"[{"startDate":"2026-10-17","tokens":true}]"#,
+            #"[{"startDate":"2026-10-17","tokens":1.5}]"#,
+            #"[{"startDate":"2026-10-17","tokens":9223372036854775808}]"#,
+            #"{"startDate":"2026-10-17","tokens":1}"#
+        ] { expectThrows(try parse(buckets)) }
+    }
+    func testMenuOrderAndQuotaIndependence() throws {
+        let usage = try parse(#"[{"startDate":"2026-10-17","tokens":12345}]"#)
+        let quota = QuotaSnapshot(fiveHour: QuotaWindow(usedPercent: 34, windowDurationMins: 300, resetsAt: now.addingTimeInterval(1000).timeIntervalSince1970), weekly: QuotaWindow(usedPercent: 12, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(86400).timeIntervalSince1970), fetchedAt: now)
+        for snapshot in [quota, nil] {
+            for mode in QuotaDisplayMode.allCases {
+                let rows = QuotaMenu.rows(snapshot: snapshot, mode: mode, dailyUsage: usage, at: now, timeZone: utc)
+                expectEqual(rows.count, 5)
+                expectTrue(rows[0].hasPrefix(mode == .countdown ? "D " : "5H "))
+                expectTrue(rows[1].hasPrefix("W "))
+                expectEqual(rows[2], "今日 Token：12,345")
+                expectTrue(rows[3].hasPrefix("重置卡："))
+                expectTrue(rows[4].hasPrefix("最近到期："))
+            }
+        }
+        let unavailable = QuotaMenu.rows(snapshot: quota, dailyUsage: nil, at: now)
+        expectTrue(unavailable[0].contains("66%"))
+        expectTrue(unavailable[1].contains("88%"))
+        expectEqual(unavailable[2], "今日 Token：暂不可用")
+    }
+}
+
 let identity = PetIdentityTests(), placement = PlacementTests(), quotas = QuotaTests(), displayModes = QuotaDisplayModeTests(), version120 = Version120Tests(), version122 = Version122Tests(), petClicks = PetClickTests(), cadence = TrackingCadenceTests()
+let dailyTokens = DailyTokenUsageTests()
 let checks: [(String, () throws -> Void)] = [
+    ("daily official totals and explicit zero", dailyTokens.testOfficialTotalAndExplicitZero),
+    ("daily missing buckets and loading are not zero", dailyTokens.testMissingAndLoadingNeverInventZero),
+    ("daily freshness, midnight and year boundaries", dailyTokens.testFreshnessAndMidnightUseSelectedDate),
+    ("daily malformed and ambiguous buckets rejected", dailyTokens.testMalformedBucketsFailSafely),
+    ("menu order and independent daily/quota availability", dailyTokens.testMenuOrderAndQuotaIndependence),
     ("idle tracking stays at one second without fast timer", cadence.testIdleNeverStartsFastPollingByItself),
     ("drag activity expires without mouse up and resumes", cadence.testMovementRefreshesBriefFastWindowAndThenExpires),
     ("release settles including coalesced short drags", cadence.testReleaseSettlesAndLateEventsCannotShortenWindow),

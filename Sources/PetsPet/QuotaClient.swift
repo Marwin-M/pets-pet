@@ -24,12 +24,20 @@ final class QuotaClient {
     private var stopped = false
 
     func refresh(completion: @escaping (Result<QuotaSnapshot, Error>) -> Void) {
+        perform({ try self.request(method: "account/rateLimits/read", includeAccount: true) { try QuotaParser.parse($0, accountData: $1) } }, completion: completion)
+    }
+
+    func refreshDailyUsage(completion: @escaping (Result<DailyTokenUsageSnapshot, Error>) -> Void) {
+        perform({ try self.request(method: "account/usage/read", includeAccount: false) { data, _ in try DailyTokenUsageParser.parse(data) } }, completion: completion)
+    }
+
+    private func perform<Value>(_ operation: @escaping () throws -> Value, completion: @escaping (Result<Value, Error>) -> Void) {
         lock.lock()
         guard !busy, !stopped else { lock.unlock(); return }
         busy = true
         lock.unlock()
         queue.async { [self] in
-            let result = Result { try request() }
+            let result = Result { try operation() }
             lock.lock(); busy = false; lock.unlock()
             DispatchQueue.main.async { completion(result) }
         }
@@ -53,7 +61,7 @@ final class QuotaClient {
         return nil
     }
 
-    private func request() throws -> QuotaSnapshot {
+    private func request<Value>(method: String, includeAccount: Bool, parse: (Data, Data?) throws -> Value) throws -> Value {
         guard let executable = executable() else { throw QuotaClientError.unavailable }
         let process = Process()
         process.executableURL = executable
@@ -93,14 +101,14 @@ final class QuotaClient {
         var buffer = Data()
         var quotaData: Data?
         var accountData: Data?
-        var accountFinished = false
+        var accountFinished = !includeAccount
         var accountWaitUntil: Date?
         let deadline = Date().addingTimeInterval(20)
         while Date() < deadline {
             lock.lock(); let cancelled = stopped; lock.unlock()
             if cancelled { throw QuotaClientError.stopped }
             if let quotaData, accountFinished || Date() >= (accountWaitUntil ?? deadline) {
-                return try QuotaParser.parse(quotaData, accountData: accountData)
+                return try parse(quotaData, accountData)
             }
             var descriptorEvent = pollfd(fd: descriptor, events: Int16(POLLIN), revents: 0)
             let count = Darwin.poll(&descriptorEvent, 1, 200)
@@ -109,7 +117,7 @@ final class QuotaClient {
             var bytes = [UInt8](repeating: 0, count: 65536)
             let readCount = Darwin.read(descriptor, &bytes, bytes.count)
             if readCount == 0 {
-                if let quotaData { return try QuotaParser.parse(quotaData, accountData: accountData) }
+                if let quotaData { return try parse(quotaData, accountData) }
                 throw QuotaClientError.stopped
             }
             if readCount < 0 {
@@ -137,25 +145,25 @@ final class QuotaClient {
                 if id == 1 {
                     guard message["result"] != nil else { throw QuotaClientError.protocolError }
                     try send(["method": "initialized", "params": [:]])
-                    try send(["id": 2, "method": "account/rateLimits/read"])
-                    try send(["id": 3, "method": "account/read", "params": ["refreshToken": false]])
+                    try send(["id": 2, "method": method])
+                    if includeAccount { try send(["id": 3, "method": "account/read", "params": ["refreshToken": false]]) }
                 } else if id == 2 {
                     guard let result = message["result"] as? [String: Any] else { throw QuotaClientError.protocolError }
                     do {
                         let data = try JSONSerialization.data(withJSONObject: result)
                         // Validate immediately; account metadata never masks a quota error.
-                        _ = try QuotaParser.parse(data)
+                        _ = try parse(data, nil)
                         quotaData = data
                     }
                     catch is DecodingError { throw QuotaClientError.protocolError }
                     accountWaitUntil = Date().addingTimeInterval(2)
                 }
                 if let quotaData, accountFinished {
-                    return try QuotaParser.parse(quotaData, accountData: accountData)
+                    return try parse(quotaData, accountData)
                 }
             }
         }
-        if let quotaData { return try QuotaParser.parse(quotaData, accountData: accountData) }
+        if let quotaData { return try parse(quotaData, accountData) }
         throw QuotaClientError.timeout
     }
 }

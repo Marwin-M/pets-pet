@@ -8,7 +8,7 @@ import PetsPetSidebar
     private(set) var projectsEnabled: Bool
     private(set) var status = "侧栏：等待连接" { didSet { if oldValue != status { onChange?() } } }
     private(set) var needsConnection = false { didSet { if oldValue != needsConnection { onChange?() } } }
-    private(set) var tokenStatus = ""
+    private(set) var tokenStatus = "" { didSet { if oldValue != tokenStatus { onChange?() } } }
     private(set) var connected = false
     private(set) var opening = false { didSet { onChange?() } }
     private let preferences: UserDefaults

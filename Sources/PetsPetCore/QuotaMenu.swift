@@ -1,7 +1,7 @@
 import Foundation
 
 public enum QuotaMenu {
-    public static func rows(snapshot: QuotaSnapshot?, mode: QuotaDisplayMode = .automatic, at now: Date, timeZone: TimeZone = .current) -> [String] {
+    public static func rows(snapshot: QuotaSnapshot?, mode: QuotaDisplayMode = .automatic, dailyUsage: DailyTokenUsageSnapshot? = nil, dailyLoading: Bool = false, at now: Date, timeZone: TimeZone = .current) -> [String] {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.timeZone = timeZone
@@ -32,6 +32,7 @@ public enum QuotaMenu {
             } else { reset = "未提供" }
             rows.append("\(name) 剩余 \(remaining) · 重置 \(reset)")
         }
+        rows.append(DailyTokenUsageMenu(snapshot: dailyUsage, loading: dailyLoading, at: now, timeZone: timeZone).title)
         guard let snapshot else { return rows + ["重置卡：暂不可用", "最近到期：未提供"] }
         guard fresh else { return rows + ["重置卡：等待刷新", "最近到期：等待刷新"] }
         guard let cards = snapshot.resetCredits, cards.availableCount >= 0 else {
