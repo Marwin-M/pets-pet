@@ -16,9 +16,10 @@
 
 | 浅色 | 深色 |
 | --- | --- |
-| <img src="Previews/Assets/current.png" width="320" alt="浅色额度组件演示：左侧 66，右侧 88"> | <img src="Previews/Assets/current-dark.png" width="320" alt="深色额度组件演示：左侧 66，右侧 88"> |
+| **倒计时＋W · Pro 示例**<br><img src="Previews/Assets/pro.png" width="320" alt="1.4.0 浅色 Pro 倒计时组件：蓝色 D 剩余 1.2 天，绿色 W 剩余 88%，中央浅色 PRO 底纹"> | **倒计时＋W · Pro 示例**<br><img src="Previews/Assets/pro-dark.png" width="320" alt="1.4.0 深色 Pro 倒计时组件：蓝色 D 剩余 1.2 天，绿色 W 剩余 88%，中央深色 PRO 底纹"> |
+| **5H＋W 额度模式**<br><img src="Previews/Assets/current.png" width="320" alt="浅色额度组件演示：左侧 66，右侧 88"> | **5H＋W 额度模式**<br><img src="Previews/Assets/current-dark.png" width="320" alt="深色额度组件演示：左侧 66，右侧 88"> |
 
-以上为原生组件的固定样式评审样本：左侧 5H 剩余 66、右侧 W 剩余 88，不代表实际账号额度。对外额度演示图统一使用这组样本值。
+上排展示 1.4.0 新增的倒计时＋W 模式及 PRO 底纹，样本为距重置 1.2 天、周额度剩余 88%；下排展示 5H＋W 模式，固定使用 5H 剩余 66、W 剩余 88。均由原生组件生成，不代表实际账号额度；两种模式均可在菜单「组件内容」中选择。
 
 ## 系统要求
 
