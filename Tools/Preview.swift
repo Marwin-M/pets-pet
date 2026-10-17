@@ -26,11 +26,12 @@ struct PreviewRenderer {
                 weekly: QuotaWindow(usedPercent: weekly, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(200000).timeIntervalSince1970), fetchedAt: now, resetCredits: sampleCards)
             return value
         }
-        let current = model(32, 58)
+        // Public demonstration images always show 66 / 88 remaining.
+        let current = model(34, 12)
         let limits = model(0, 100)
         let loading = DisplayModel(); loading.now = now
         let failure = DisplayModel(); failure.now = now; failure.loading = false; failure.error = "预览：查询失败"
-        let stale = model(32, 58)
+        let stale = model(34, 12)
         stale.snapshot = QuotaSnapshot(fiveHour: stale.snapshot?.fiveHour, weekly: stale.snapshot?.weekly, fetchedAt: now.addingTimeInterval(-300))
         var cases = [("current", current), ("limits", limits), ("loading", loading), ("error", failure), ("stale", stale)]
         for remaining in [100, 75, 50, 25, 0] {
