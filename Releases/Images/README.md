@@ -68,4 +68,4 @@
 
 ### 1.5.0
 
-浅色侧栏位置图来自本版留档 `preview.png`；深色位置图来自已公开的 [1.5.0 文档提交 cce2d40](https://github.com/Marwin-M/pets-pet/commit/cce2d40bce8ccab54a219e6d41f1bb154a3be51b) 中的 `Previews/Assets/position-layout-dark.png`。额度与浅深菜单来自本版匹配源码包。
+图片保留本版构建 18 时的原始归档字节，构建 19 仅修复逻辑、没有界面变化，因此原样复用；`sources.json` 保留提取时的来源包校验值。浅色侧栏位置图来自原构建的 `preview.png`；深色位置图来自已公开的 [1.5.0 文档提交 cce2d40](https://github.com/Marwin-M/pets-pet/commit/cce2d40bce8ccab54a219e6d41f1bb154a3be51b) 中的 `Previews/Assets/position-layout-dark.png`。额度与浅深菜单来自原构建的匹配源码包。

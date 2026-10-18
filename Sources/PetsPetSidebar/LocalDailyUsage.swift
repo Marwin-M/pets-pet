@@ -36,6 +36,7 @@ public actor LocalDailyUsageReader {
         var originBeganAt: Date?
         var previous: TokenBreakdown?
         var previousDate: Date?
+        var seen: Set<Fingerprint> = []
         var events: [Contribution] = []
         var uncertain = false
         var pending = false
@@ -198,6 +199,19 @@ public actor LocalDailyUsageReader {
         guard let raw = info["total_token_usage"] as? [String: Any], let total = TokenBreakdown.parse(raw) else {
             if today { entry.uncertain = true }; entry.previous = nil; return
         }
+        guard date <= now.addingTimeInterval(5) else { entry.uncertain = true; return }
+        let key = Fingerprint(origin: entry.origin ?? scope, timestamp: date, input: total.input, cached: total.cached, output: total.output)
+        // Deduplicate before changing the baseline, including inherited events.
+        // Retain only this day's fingerprints rather than the entire history.
+        if date >= start && date < end, !entry.seen.insert(key).inserted { return }
+        if let previousDate = entry.previousDate, date < previousDate {
+            if today { entry.uncertain = true }
+            return
+        }
+        if let previous = entry.previous,
+           total.input < previous.input || total.cached < previous.cached || total.output < previous.output {
+            if today { entry.uncertain = true }
+        }
         let last = (info["last_token_usage"] as? [String: Any]).flatMap(TokenBreakdown.parse)
         var delta: TokenBreakdown?
         if let previous = entry.previous, let previousDate = entry.previousDate,
@@ -217,10 +231,9 @@ public actor LocalDailyUsageReader {
         }
         entry.previous = total; entry.previousDate = date
         guard today else { return }
-        guard date <= now.addingTimeInterval(5), let delta else { entry.uncertain = true; return }
+        guard let delta else { entry.uncertain = true; return }
         guard delta.total > 0 else { return }
         if entry.origin == nil { entry.uncertain = true }
-        let key = Fingerprint(origin: entry.origin ?? scope, timestamp: date, input: total.input, cached: total.cached, output: total.output)
         entry.events.append(Contribution(key: key, usage: delta))
     }
 

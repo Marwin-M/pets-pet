@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import plistlib
-import shutil
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -110,6 +110,9 @@ class ReleaseArchivesTests(unittest.TestCase):
     def test_install_writes_only_the_primary_app(self):
         # Isolated filesystem and process/command doubles: never use a real app.
         primary = self.root / "dist/PetsPet.app"
+        old_resource = primary / "Contents/Resources/removed.txt"
+        old_resource.parent.mkdir(parents=True)
+        old_resource.write_text("obsolete resource")
         payload = b"isolated release install check"
         manifest = {"package": "PetsPet-1.1.0.zip", "binarySHA256": hashlib.sha256(payload).hexdigest()}
 
@@ -120,8 +123,9 @@ class ReleaseArchivesTests(unittest.TestCase):
                 binary = Path(arguments[-1]) / "PetsPet.app/Contents/MacOS/PetsPet"
                 binary.parent.mkdir(parents=True)
                 binary.write_bytes(payload)
-            else:
-                shutil.copytree(arguments[1], arguments[2])
+                resources = binary.parent.parent / "Resources"
+                resources.mkdir()
+                (resources / "current.txt").write_text("current resource")
 
         with patch.object(release, "APP", primary), \
                 patch.object(release, "verify_release", return_value=manifest), \
@@ -130,7 +134,78 @@ class ReleaseArchivesTests(unittest.TestCase):
                 patch("builtins.print"):
             release.install_release("1.1.0")
         self.assertEqual((primary / "Contents/MacOS/PetsPet").read_bytes(), payload)
+        self.assertFalse(old_resource.exists())
+        self.assertEqual((primary / "Contents/Resources/current.txt").read_text(), "current resource")
+        self.assertEqual(list(primary.parent.glob(".petspet-backup-*")), [])
         self.assertFalse((self.root / "dist/Next").exists())
+
+    def test_install_failures_restore_the_complete_previous_app(self):
+        primary = self.root / "dist/PetsPet.app"
+        binary = primary / "Contents/MacOS/PetsPet"
+        resource = primary / "Contents/Resources/previous.txt"
+        payload = b"replacement binary"
+        rename = Path.rename
+        for failure in ["rename", "signature", "checksum"]:
+            with self.subTest(failure=failure):
+                binary.parent.mkdir(parents=True, exist_ok=True)
+                binary.write_bytes(b"previous binary")
+                resource.parent.mkdir(parents=True, exist_ok=True)
+                resource.write_text("previous resource")
+                manifest = {"package": "PetsPet-1.1.0.zip", "binarySHA256": hashlib.sha256(payload if failure != "checksum" else b"wrong checksum").hexdigest()}
+
+                def command(arguments):
+                    if arguments[0] == "ditto":
+                        staged_binary = Path(arguments[-1]) / "PetsPet.app/Contents/MacOS/PetsPet"
+                        staged_binary.parent.mkdir(parents=True)
+                        staged_binary.write_bytes(payload)
+                    elif arguments[0] == "codesign" and arguments[-1] == primary and failure == "signature":
+                        raise subprocess.CalledProcessError(1, arguments)
+
+                def move(path, target):
+                    if failure == "rename" and path.name == "PetsPet.app" and path.parent.name.startswith("install-"):
+                        raise OSError("Simulated replacement failure")
+                    return rename(path, target)
+
+                with patch.object(release, "APP", primary), \
+                        patch.object(release, "verify_release", return_value=manifest), \
+                        patch.object(release, "run", side_effect=command), \
+                        patch.object(release.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="")), \
+                        patch.object(Path, "rename", new=move):
+                    with self.assertRaises((OSError, subprocess.CalledProcessError, ValueError)):
+                        release.install_release("1.1.0")
+                self.assertEqual(binary.read_bytes(), b"previous binary")
+                self.assertEqual(resource.read_text(), "previous resource")
+                self.assertEqual(list(primary.parent.glob(".petspet-backup-*")), [])
+
+    def test_failed_rollback_keeps_the_previous_app_for_recovery(self):
+        primary = self.root / "dist/PetsPet.app"
+        binary = primary / "Contents/MacOS/PetsPet"
+        binary.parent.mkdir(parents=True)
+        binary.write_bytes(b"previous binary")
+        manifest = {"package": "PetsPet-1.1.0.zip"}
+        rename = Path.rename
+
+        def command(arguments):
+            if arguments[0] == "ditto":
+                staged_binary = Path(arguments[-1]) / "PetsPet.app/Contents/MacOS/PetsPet"
+                staged_binary.parent.mkdir(parents=True)
+                staged_binary.write_bytes(b"replacement binary")
+
+        def move(path, target):
+            if target == primary:
+                raise OSError("Simulated replacement and rollback failure")
+            return rename(path, target)
+
+        with patch.object(release, "APP", primary), \
+                patch.object(release, "verify_release", return_value=manifest), \
+                patch.object(release, "run", side_effect=command), \
+                patch.object(release.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="")), \
+                patch.object(Path, "rename", new=move):
+            with self.assertRaisesRegex(RuntimeError, "recovery files retained"):
+                release.install_release("1.1.0")
+        backups = list(primary.parent.glob(".petspet-backup-*/PetsPet.app"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual((backups[0] / "Contents/MacOS/PetsPet").read_bytes(), b"previous binary")
 
     def test_install_refuses_running_app_without_terminating_or_replacing(self):
         primary = self.root / "dist/PetsPet.app"

@@ -199,8 +199,10 @@ def install_release(version):
     version = validate_version(version)
     directory = ARCHIVES / version
     manifest = verify_release(directory, version)
-    (ROOT / ".build").mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="install-", dir=ROOT / ".build") as temporary:
+    # Stage beside the destination so complete bundles can be renamed without
+    # merging resources or copying across filesystems during replacement.
+    APP.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="install-", dir=APP.parent) as temporary:
         stage = Path(temporary)
         run(["ditto", "-x", "-k", directory / manifest["package"], stage])
         staged_app = stage / "PetsPet.app"
@@ -214,10 +216,30 @@ def install_release(version):
             peers.update(int(value) for value in result.stdout.split())
         if peers:
             raise RuntimeError("Quit Pet's Pet manually before installing; the app bundle was not replaced")
-        run(["ditto", staged_app, APP])
-        run(["codesign", "--verify", "--strict", APP])
-        if digest(APP / "Contents/MacOS/PetsPet") != manifest["binarySHA256"]:
-            raise ValueError("Installed binary does not match the archived release")
+        # Keep the backup outside the automatically cleaned staging directory:
+        # even a failed rollback must never discard the previous working app.
+        backup_dir = Path(tempfile.mkdtemp(prefix=".petspet-backup-", dir=APP.parent))
+        backup = backup_dir / "PetsPet.app"
+        installed = False
+        try:
+            if APP.exists() or APP.is_symlink():
+                APP.rename(backup)
+            staged_app.rename(APP)
+            installed = True
+            run(["codesign", "--verify", "--strict", APP])
+            if digest(APP / "Contents/MacOS/PetsPet") != manifest["binarySHA256"]:
+                raise ValueError("Installed binary does not match the archived release")
+        except BaseException:
+            try:
+                if installed:
+                    APP.rename(staged_app)
+                if backup.exists() or backup.is_symlink():
+                    backup.rename(APP)
+            except OSError as error:
+                raise RuntimeError("Installation rollback failed; recovery files retained at " + str(backup_dir)) from error
+            backup_dir.rmdir()
+            raise
+        shutil.rmtree(backup_dir)
     print("INSTALLED " + version + " at " + str(APP))
 
 

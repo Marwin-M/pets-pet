@@ -8,7 +8,9 @@ public struct LocalProject: Equatable, Sendable {
         guard !id.isEmpty, id.count <= 512, roots.count <= 8,
               roots.allSatisfy({ $0.hasPrefix("/") && $0.utf8.count <= 4096 && !$0.contains("\0") }) else { return nil }
         self.id = id
-        self.roots = Self.uniqueRoots(roots)
+        // A nested path may be an explicit symlink root pointing outside its
+        // parent. Resolve and prune overlapping roots on the scanning queue.
+        self.roots = Array(Set(roots)).sorted()
     }
     public static func uniqueRoots(_ roots: [String]) -> [String] {
         let sorted = Set(roots.map { URL(fileURLWithPath: $0).standardizedFileURL.path }).sorted()
@@ -24,8 +26,14 @@ public struct LocalProject: Equatable, Sendable {
 public enum ProjectDiskUsage {
     public static func measure(_ roots: [String], timeout: TimeInterval = 180, cancelled: () -> Bool = { false }) throws -> Int64 {
         guard !roots.isEmpty else { throw SidebarError.directory }
-        let canonical = LocalProject.uniqueRoots(roots.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path })
         let deadline = Date().addingTimeInterval(timeout)
+        let canonical = try LocalProject.uniqueRoots(roots.map { root in
+            if cancelled() { throw SidebarError.cancelled }
+            guard Date() < deadline else { throw SidebarError.timeout }
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: root, isDirectory: &isDirectory), isDirectory.boolValue else { throw SidebarError.directory }
+            return URL(fileURLWithPath: root).resolvingSymlinksInPath().path
+        })
         var total: Int64 = 0
         for root in canonical {
             if cancelled() { throw SidebarError.cancelled }
