@@ -2,17 +2,21 @@ import AppKit
 import ApplicationServices
 import SwiftUI
 import PetsPetCore
+import PetsPetSidebar
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let model = DisplayModel()
     private let monitor = PetMonitor()
     private let petClicks = PetClickMonitor()
     private let quota = QuotaClient()
-    private let dailyUsageClient = QuotaClient()
+    private let dailyUsageReader = LocalDailyUsageReader()
+    private var dailyUsageTask: Task<Void, Never>?
     private var dailyUsage: DailyTokenUsageSnapshot?
     private var dailyLoading = false
     private var lastDailyAttempt = Date.distantPast
     private let sidebar = SidebarController()
+    private let sidebarQuota = SidebarQuotaRenderer()
+    private var componentPosition = ComponentPosition.followPet
     private var store: SupportStore?
     private var overlay: OverlayController!
     private var statusItem: NSStatusItem!
@@ -50,6 +54,7 @@ import PetsPetCore
         catch { showStorageError(); return }
         model.appearance = AppearancePreference(savedValue: UserDefaults.standard.string(forKey: "appearance"))
         model.contentMode = QuotaDisplayMode(savedValue: UserDefaults.standard.string(forKey: QuotaDisplayMode.defaultsKey))
+        componentPosition = ComponentPosition(savedValue: UserDefaults.standard.string(forKey: ComponentPosition.defaultsKey))
         applyAppearance()
         overlay = OverlayController(model: model)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -64,25 +69,32 @@ import PetsPetCore
         menu.delegate = self
         statusItem.menu = menu
         sidebar.onChange = { [weak self] in self?.updateStatusHint() }
+        sidebar.quotaProvider = { [weak self] in
+            guard let self, self.componentEnabled, !self.suspended, self.componentPosition == .sidebarBottom else { return nil }
+            return self.sidebarQuota.payload(for: self.model)
+        }
+        sidebar.setQuotaEnabled(componentPosition == .sidebarBottom && componentEnabled)
         sidebar.start()
         monitor.onChange = { [weak self] in self?.receive($0) }
         monitor.onGeometry = { [weak geometryStore = store] in geometryStore?.recordGeometry($0) }
-        petClicks.onClick = { [weak self] in self?.toggleComponent() }
+        petClicks.onClick = { [weak self] in
+            guard let self, self.componentPosition == .followPet else { return }
+            self.toggleComponent()
+        }
         petClicks.onDecision = { [weak self] decision in
             self?.store?.record(["event": "petClick", "decision": decision], event: true)
         }
         petClicks.onDrag = { [weak self] released in
-            guard let self, self.componentEnabled, !self.suspended else { return }
+            guard let self, self.componentPosition == .followPet, self.componentEnabled, !self.suspended else { return }
             self.monitor.dragActivity(released: released)
         }
-        petClicks.start()
-        monitor.start()
+        if componentPosition == .followPet { petClicks.start(); monitor.start() }
         fetch()
         clock = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.model.now = Date()
-                if !self.suspended && self.state.rect != nil && Date().timeIntervalSince(self.lastFetch) >= 60 { self.fetch() }
+                if !self.suspended && (self.state.rect != nil || self.componentPosition == .sidebarBottom && self.componentEnabled) && Date().timeIntervalSince(self.lastFetch) >= 60 { self.fetch() }
             }
         }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(sleep), name: NSWorkspace.willSleepNotification, object: nil)
@@ -91,18 +103,18 @@ import PetsPetCore
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(wake), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(codexChanged(_:)), name: NSWorkspace.didLaunchApplicationNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(codexChanged(_:)), name: NSWorkspace.didTerminateApplicationNotification, object: nil)
-        if !AXIsProcessTrusted() { showSetup() }
+        if componentPosition == .followPet && !AXIsProcessTrusted() { showSetup() }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task { await sidebar.shutdown(); NSApp.reply(toApplicationShouldTerminate: true) }
         return .terminateLater
     }
-    func applicationWillTerminate(_ notification: Notification) { petClicks.stop(); monitor.stop(); quota.stop(); dailyUsageClient.stop(); clock?.invalidate(); overlay?.hide() }
+    func applicationWillTerminate(_ notification: Notification) { petClicks.stop(); monitor.stop(); quota.stop(); dailyUsageTask?.cancel(); clock?.invalidate(); overlay?.hide() }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showSetup(); return true }
 
     private func receive(_ next: PetState) {
-        guard !suspended else { return }
+        guard !suspended, componentPosition == .followPet else { return }
         let wasVisible = state.rect != nil
         let phaseChanged = state.phase != next.phase
         state = next
@@ -122,6 +134,7 @@ import PetsPetCore
                                        "processID": next.processID, "screenWindowCount": next.screenWindowCount, "axWindowCount": next.axWindowCount,
                                        "manualActivationError": next.manualActivationError, "chromiumActivationError": next.chromiumActivationError,
                                        "componentEnabled": componentEnabled,
+                                       "componentPosition": componentPosition.rawValue,
                                        "sidebarTokensEnabled": sidebar.tokensEnabled,
                                        "sidebarProjectsEnabled": sidebar.projectsEnabled,
                                        "sidebarConnected": sidebar.connected,
@@ -139,12 +152,12 @@ import PetsPetCore
     private func rectFields(_ rect: CGRect) -> [String: Double] { ["x": rect.minX, "y": rect.minY, "width": rect.width, "height": rect.height] }
 
     private func updateStatusHint() {
-        statusItem.button?.toolTip = "Pet's Pet — \(state.phase)\n\(sidebar.status)"
+        statusItem.button?.toolTip = "Pet's Pet — \(componentPhase)\n\(sidebar.status)"
         updateOpenConnectionMenu()
     }
 
     private func updateOverlay() -> CGRect? {
-        guard componentEnabled, !suspended else { overlay.hide(); return nil }
+        guard componentPosition == .followPet, componentEnabled, !suspended else { overlay.hide(); return nil }
         return overlay.update(state)
     }
 
@@ -155,7 +168,8 @@ import PetsPetCore
 
     private func toggleComponent() {
         componentEnabled.toggle()
-        if componentEnabled {
+        sidebar.setQuotaEnabled(componentPosition == .sidebarBottom && componentEnabled)
+        if componentEnabled && componentPosition == .followPet {
             // Hidden components use 1 Hz tracking too. Confirm their current
             // position before showing, rather than flashing last second's frame.
             state.rect = nil; state.occupiedRect = nil
@@ -181,19 +195,26 @@ import PetsPetCore
                 }
                 self.store?.record(["event": "quota", "available": self.model.error == nil], event: true)
                 self.updateOpenDataMenu()
+                self.sidebar.refreshQuota()
             }
         }
         if !dailyLoading {
             dailyLoading = true
             lastDailyAttempt = Date()
-            // Separate clients keep unsupported daily statistics from blocking quota reads.
-            dailyUsageClient.refreshDailyUsage { [weak self] result in
+            dailyUsageTask = Task { [weak self] in
                 guard let self else { return }
-                self.dailyLoading = false
-                switch result {
-                case .success(let snapshot): self.dailyUsage = snapshot
-                case .failure: self.dailyUsage = nil
+                do {
+                    let result = try await self.dailyUsageReader.read()
+                    guard !Task.isCancelled else { return }
+                    self.dailyUsage = DailyTokenUsageSnapshot(dayStart: result.dayStart, dayEnd: result.dayEnd,
+                        timeZoneIdentifier: result.timeZoneIdentifier, input: result.usage.input,
+                        cached: result.usage.cached, output: result.usage.output,
+                        isComplete: result.isComplete, fetchedAt: result.fetchedAt)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    self.dailyUsage = nil
                 }
+                self.dailyLoading = false
                 self.updateOpenDataMenu()
             }
         }
@@ -207,12 +228,12 @@ import PetsPetCore
         if (!fetching && quotaNeedsRefresh) || (!dailyLoading && dailyNeedsRefresh) { fetch() }
         menu.removeAllItems()
         openMenu = menu
-        label("Pet's Pet · \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")", in: menu, secondary: true)
-        label(state.phase, in: menu, secondary: true)
+        label("Pet's Pet · \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")", in: menu, secondary: true, prominent: true)
+        label(componentPhase, in: menu, secondary: true, prominent: true)
         menu.addItem(.separator())
-        dataMenuItems = (0..<5).map { _ in label("", in: menu) }
-        updatedMenuItem = label("", in: menu, secondary: true)
-        dataStatusItem = label("", in: menu, secondary: true)
+        dataMenuItems = (0..<5).map { _ in label("", in: menu, prominent: true) }
+        updatedMenuItem = label("", in: menu, secondary: true, prominent: true)
+        dataStatusItem = label("", in: menu, secondary: true, prominent: true)
         item("立即刷新", #selector(fetch), in: menu)
         refreshMenuItem = menu.items.last
         menu.addItem(.separator())
@@ -221,6 +242,13 @@ import PetsPetCore
         item("显示额度组件", #selector(toggleComponentFromMenu), in: display)
         componentMenuItem = display.items.last
         componentMenuItem?.state = componentEnabled ? .on : .off
+        let positions = submenu("显示位置", in: display)
+        for choice in ComponentPosition.allCases {
+            let option = NSMenuItem(title: choice.title, action: #selector(selectPosition(_:)), keyEquivalent: "")
+            option.target = self; option.representedObject = choice.rawValue
+            option.state = choice == componentPosition ? .on : .off
+            positions.addItem(option)
+        }
         let contentChoices = submenu("组件内容", in: display)
         for choice in QuotaDisplayMode.allCases {
             let option = NSMenuItem(title: choice.title, action: #selector(selectContentMode(_:)), keyEquivalent: "")
@@ -273,18 +301,18 @@ import PetsPetCore
         guard openMenu != nil else { return }
         let now = Date()
         let rows = QuotaMenu.rows(snapshot: model.error == nil ? model.snapshot : nil, mode: model.contentMode.resolved(for: model.snapshot), dailyUsage: dailyUsage, dailyLoading: dailyLoading, at: now)
-        for (item, row) in zip(dataMenuItems, rows) { setLabel(row, on: item) }
+        for (item, row) in zip(dataMenuItems, rows) { setLabel(row, on: item, prominent: true) }
         dataMenuItems[2].toolTip = DailyTokenUsageMenu(snapshot: dailyUsage, loading: dailyLoading, at: now).toolTip
         let formatter = DateFormatter(); formatter.timeStyle = .medium
         let dates = [model.snapshot?.fetchedAt, dailyUsage?.fetchedAt].compactMap { $0 }
         let updated = dates.min().map { formatter.string(from: $0) } ?? "--"
         if let item = updatedMenuItem {
-            setLabel("数据更新于：\(updated)", on: item, secondary: true)
+            setLabel("数据更新于：\(updated)", on: item, secondary: true, prominent: true)
             item.toolTip = "额度：\(model.snapshot.map { formatter.string(from: $0.fetchedAt) } ?? "暂不可用")\n每日 Token：\(dailyUsage.map { formatter.string(from: $0.fetchedAt) } ?? "暂不可用")"
         }
         if let item = dataStatusItem {
             let status = model.error ?? (fetching ? "正在读取额度…" : "")
-            setLabel(status, on: item, secondary: true)
+            setLabel(status, on: item, secondary: true, prominent: true)
             item.isHidden = status.isEmpty
         }
         refreshMenuItem?.isEnabled = !fetching && !dailyLoading
@@ -298,7 +326,7 @@ import PetsPetCore
             setLabel(sidebar.tokenStatus, on: item, secondary: true)
             item.isHidden = sidebar.tokenStatus.isEmpty
         }
-        enableConnectionItem?.isEnabled = !sidebar.opening && !sidebar.connected && (sidebar.tokensEnabled || sidebar.projectsEnabled)
+        enableConnectionItem?.isEnabled = !sidebar.opening && !sidebar.connected && sidebar.hasEnabledFeatures
     }
 
     private func submenu(_ title: String, in menu: NSMenu) -> NSMenu {
@@ -312,10 +340,32 @@ import PetsPetCore
     @objc private func toggleProjectSizes() { sidebar.setProjects(!sidebar.projectsEnabled) }
     @objc private func enableSidebarConnection() { sidebar.enableConnection() }
 
+    private var componentPhase: String {
+        guard componentPosition == .sidebarBottom else { return state.phase }
+        if !componentEnabled { return "侧栏底部组件已隐藏" }
+        if !sidebar.connected { return "侧栏底部：等待侧栏连接" }
+        return sidebar.quotaStatus
+    }
+
+    @objc private func selectPosition(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let choice = ComponentPosition(rawValue: raw), choice != componentPosition else { return }
+        componentPosition = choice
+        UserDefaults.standard.set(choice.rawValue, forKey: ComponentPosition.defaultsKey)
+        petClicks.cancelPendingClick(); monitor.cancelDragActivity()
+        overlay.hide()
+        sidebar.setQuotaEnabled(choice == .sidebarBottom && componentEnabled)
+        state.rect = nil; state.occupiedRect = nil
+        if choice == .followPet && !suspended { petClicks.start(); monitor.start(); monitor.refresh() }
+        else { petClicks.stop(); monitor.stop() }
+        store?.record(["event": "componentPosition", "position": choice.rawValue], event: true)
+        updateStatusHint()
+    }
+
     @objc private func selectContentMode(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let choice = QuotaDisplayMode(rawValue: raw) else { return }
         model.contentMode = choice
         UserDefaults.standard.set(choice.rawValue, forKey: QuotaDisplayMode.defaultsKey)
+        sidebar.refreshQuota()
     }
 
     @objc private func selectAppearance(_ sender: NSMenuItem) {
@@ -323,6 +373,7 @@ import PetsPetCore
         model.appearance = choice
         UserDefaults.standard.set(choice.rawValue, forKey: "appearance")
         applyAppearance()
+        sidebar.refreshQuota()
     }
     private func applyAppearance() {
         switch model.appearance {
@@ -337,21 +388,26 @@ import PetsPetCore
         overlay.hide()
         state.rect = nil; state.occupiedRect = nil
         petClicks.updateTarget(processID: 0, windowID: nil, rect: nil)
-        monitor.rescan()
+        if componentPosition == .followPet { monitor.rescan() }
         sidebar.clientDidChange()
     }
-    @discardableResult private func label(_ title: String, in menu: NSMenu, secondary: Bool = false) -> NSMenuItem {
+    @discardableResult private func label(_ title: String, in menu: NSMenu, secondary: Bool = false, prominent: Bool = false) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
-        setLabel(title, on: item, secondary: secondary)
+        setLabel(title, on: item, secondary: secondary, prominent: prominent)
         menu.addItem(item)
         return item
     }
-    private func setLabel(_ title: String, on item: NSMenuItem, secondary: Bool = false) {
+    private func setLabel(_ title: String, on item: NSMenuItem, secondary: Bool = false, prominent: Bool = false) {
         item.title = title
         // Explicit semantic colors keep read-only information legible without
         // turning it into a clickable action. The system still draws the menu.
-        let color = secondary ? NSColor.secondaryLabelColor : NSColor.labelColor.withAlphaComponent(0.82)
+        let color: NSColor
+        if prominent {
+            color = NSColor.labelColor.withAlphaComponent(secondary ? 0.88 : 1)
+        } else {
+            color = secondary ? NSColor.secondaryLabelColor : NSColor.labelColor.withAlphaComponent(0.82)
+        }
         item.attributedTitle = NSAttributedString(string: title, attributes: [.foregroundColor: color])
     }
     private func item(_ title: String, _ action: Selector, in menu: NSMenu, key: String = "") { let item = NSMenuItem(title: title, action: action, keyEquivalent: key); item.target = self; menu.addItem(item) }
@@ -359,17 +415,22 @@ import PetsPetCore
         state.rect = nil; state.occupiedRect = nil
         petClicks.updateTarget(processID: 0, windowID: nil, rect: nil)
         overlay.hide()
-        monitor.rescan()
+        if componentPosition == .followPet { monitor.rescan() }
     }
     @objc private func quit() { NSApp.terminate(nil) }
     @objc private func openDiagnostics() { if let store { NSWorkspace.shared.open(store.directory) } }
     @objc private func sleep() {
         suspended = true
+        dailyUsageTask?.cancel(); dailyLoading = false
         sidebar.setPaused(true)
         state.rect = nil; state.occupiedRect = nil
         petClicks.stop(); monitor.stop(); overlay.hide()
     }
-    @objc private func wake() { suspended = false; sidebar.setPaused(false); petClicks.start(); monitor.stop(); monitor.rescan(); monitor.start(); fetch() }
+    @objc private func wake() {
+        suspended = false; sidebar.setPaused(false)
+        if componentPosition == .followPet { petClicks.start(); monitor.stop(); monitor.rescan(); monitor.start() }
+        fetch()
+    }
 
     @objc private func showSetup() {
         if setupWindow == nil {

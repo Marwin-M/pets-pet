@@ -83,7 +83,15 @@ class Handler(socketserver.StreamRequestHandler):
                 elif expression == "exception":
                     result["result"] = {"exceptionDetails": {"text": "fixture exception"}}
                 elif expression:
-                    result["result"] = {"result": {"value": {"ok": True}}}
+                    value = {"ok": True}
+                    if expression.startswith("// Pet's Pet sidebar renderer."):
+                        options = json.loads(expression.rsplit(" (", 1)[1][:-1])
+                        value["quotaMounted"] = options.get("quota") is not None
+                        port_path.with_suffix('.options').write_text(json.dumps({
+                            "tokens": options.get("tokens"), "projects": options.get("projects"),
+                            "quota": options.get("quota") is not None,
+                        }))
+                    result["result"] = {"result": {"value": value}}
                 threading.Thread(target=reply, args=(result, 0.05 if expression == "slow" else 0), daemon=True).start()
         except (OSError, ValueError, json.JSONDecodeError):
             return

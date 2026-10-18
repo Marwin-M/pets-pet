@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pet’s Pet · 显示位置</title>
+<style>
+:root{color-scheme:light;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#f5f6f8;color:#24272b;--sidebar:#eaf0f1;--surface:#fff;--line:#dce1e3;--muted:#737b83}
+:root.dark{color-scheme:dark;background:#17191c;color:#e5e9ed;--sidebar:#24282d;--surface:#1c1e22;--line:#383d43;--muted:#9da5ae}*{box-sizing:border-box}body{margin:0}main{max-width:1060px;margin:auto;padding:32px}h1{font-size:23px;margin:0 0 10px}p{color:var(--muted);line-height:1.7}label{display:inline-flex;gap:8px;align-items:center;margin:6px 18px 12px 0}select,button{font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:6px 10px}.window{height:540px;display:flex;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative}.sidebar{width:280px;flex:none;display:flex;flex-direction:column;position:relative;overflow:hidden;background:var(--sidebar);padding-top:30px}.contents{display:contents}.absolute{position:absolute}.inset-x-0{left:0;right:0}.bottom-0{bottom:0}.scroll{overflow:auto;flex:1;min-height:0;margin-bottom:var(--sidebar-footer-height,0px);padding:12px 16px}.row{height:34px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.heading{font-size:12px;color:var(--muted);margin:8px 0 14px}.profile{padding:8px 14px;height:42px;display:flex;align-items:center;font-size:11px;color:var(--muted);gap:8px}.rail{width:52px;flex:none;background:var(--sidebar);display:flex;align-items:flex-end;justify-content:center;padding-bottom:12px}.rail button{padding:0;border:0;background:none}.avatar{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#9858ba;color:#fff;font-size:9px}.chat{padding:42px 32px;flex:1;min-width:0}.chat h2{font-size:18px;font-weight:500}.bubble{height:12px;background:var(--line);border-radius:8px;width:80%;margin:16px 0}.pet{position:absolute;right:48px;bottom:116px;font-size:48px}.following{position:absolute;right:12px;bottom:28px;width:144px;height:80px;pointer-events:none}.caption{font-size:12px}#checks{white-space:pre-wrap;font:12px/1.7 monospace;color:var(--muted)}.sidebar[hidden]{display:none}@media(max-width:700px){main{padding:18px}.sidebar{width:230px}.chat{padding:24px 16px}}
+</style></head><body><main>
+<h1>显示位置</h1><p>默认跟随宠物，也可以固定在侧栏底部。此页使用原生组件评审图片，额度 66 / 88 仅为演示。</p>
+<label>显示位置 <select id="position"><option value="followPet">跟随宠物（默认）</option><option value="sidebarBottom" selected>侧栏底部</option></select></label>
+<label>外观 <select id="theme"><option value="light">浅色</option><option value="dark">深色</option></select></label>
+<label>组件内容 <select id="content"><option value="current">5H＋W</option><option value="pro">重置倒计时＋W</option><option value="loading">读取中</option><option value="error">读取失败</option></select></label>
+<label><input id="visible" type="checkbox" checked>显示组件</label><label><input id="collapsed" type="checkbox">收起侧栏</label><label>侧栏宽度 <input id="width" type="range" min="200" max="380" value="280"></label>
+<div class="window"><nav class="rail" data-app-navigation-rail><div class="sidebar-item"><button aria-label="打开个人资料菜单"><span class="avatar rounded-full" aria-hidden="true">MA</span></button></div></nav><aside class="sidebar" data-sidebar-navigation-root><div class="contents"><nav class="scroll" data-app-action-sidebar-scroll aria-label="聊天记录"><div class="heading">最近对话</div><div id="rows"></div></nav><div class="absolute inset-x-0 bottom-0 z-20"></div></div></aside><section class="chat"><h2>组件固定在侧栏底部</h2><div class="bubble"></div><div class="bubble" style="width:60%"></div><p class="caption">半透明组件悬浮在聊天列表上；继续上滑，最后一条聊天也能移到组件上方。</p></section><div class="pet">🐱</div><img class="following" hidden src="Assets/position-current.png" alt="跟随宠物额度组件"></div>
+<p class="caption">预览用于确认位置与尺寸；真实窗口、多屏和客户端连接需在打包后验收。</p><pre id="checks"></pre>
+<script>
+const $=s=>document.querySelector(s);let install;const images=new Map();
+for(let i=1;i<=25;i++){const row=document.createElement('div');row.className='row';row.textContent=i===25?'最后一条聊天 · 可以滑到组件上方':`产品讨论与开发记录 ${i}`;$('#rows').append(row)}
+const footer=$('.bottom-0');new ResizeObserver(()=>$('.sidebar').style.setProperty('--sidebar-footer-height',`${footer.getBoundingClientRect().height}px`)).observe(footer);
+async function image(name){if(!images.has(name)){const blob=await(await fetch(`Assets/position-${name}.png`,{cache:'no-store'})).blob();images.set(name,await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(blob)}))}return images.get(name)}
+async function payload(){const name=$('#content').value;return {light:await image(name),dark:await image(name+'-dark'),appearance:'system',label:name==='current'?'额度评审样本，5H 剩余 66%，周剩余 88%':name==='pro'?'额度评审样本，距周额度重置 1.2 天，周剩余 88%':name==='loading'?'额度评审样本，读取中':'额度评审样本，额度不可用',width:144,height:80}}
+async function render(){const dark=$('#theme').value==='dark',fixed=$('#position').value==='sidebarBottom',visible=$('#visible').checked;document.documentElement.classList.toggle('dark',dark);$('.sidebar').hidden=$('#collapsed').checked;$('.sidebar').style.width=$('#width').value+'px';const source=await payload();$('.following').src=dark?source.dark:source.light;$('.following').hidden=fixed||!visible;if(install){await install({tokens:false,projects:false,quota:fixed&&visible?source:null})}}
+for(const control of document.querySelectorAll('input,select'))control.addEventListener('input',render);
+async function runChecks(){
+ const results=[];const check=(value,label)=>{if(!value)throw Error(label);results.push('通过 · '+label)};const wait=()=>new Promise(r=>setTimeout(r,100));
+ try{
+  const data=await payload();check(data.light.length<=128000&&data.dark.length<=128000,'原生预览图片符合正式加载限制');const viewportBefore=$('.scroll').clientHeight;await install({quota:data});await wait();const slot=$('[data-petspet-sidebar-owned="quota"]');
+  check(slot?.isConnected,'侧栏底部挂载正式显示代码');check($('.scroll').clientHeight===viewportBefore&&getComputedStyle(slot).position==='absolute','悬浮组件不缩短聊天列表');check(getComputedStyle(slot).pointerEvents==='none'&&Number(getComputedStyle(slot).opacity)<1,'半透明显示并允许鼠标穿透');
+  const imageBottom=slot.querySelector('img').getBoundingClientRect().bottom-8;
+  check(Math.abs(imageBottom-$('.avatar').getBoundingClientRect().bottom)<.5,'组件主体底边与左侧头像底边对齐');
+  const scroll=$('.scroll');scroll.scrollTop=scroll.scrollHeight;check($('#rows').lastElementChild.getBoundingClientRect().bottom<=slot.getBoundingClientRect().top+.5,'最后一条记录完整可见');
+  const before=slot.getBoundingClientRect().left;$('.sidebar').style.width='360px';await wait();check(slot.getBoundingClientRect().left===before&&Math.abs(slot.querySelector('img').getBoundingClientRect().left-(slot.getBoundingClientRect().left+(slot.clientWidth-144)/2))<.5,'侧栏变宽后仍居中');
+  document.documentElement.classList.add('dark');await wait();check(slot.querySelector('img').src===data.dark,'系统外观跟随页面深色');
+  $('.sidebar').hidden=true;await install({quota:data});check(!slot.isConnected,'侧栏收起移除组件');$('.sidebar').hidden=false;await install({quota:data});check(slot.isConnected,'侧栏展开恢复组件');
+  await install({quota:{...data,light:'https://example.com/image.png'}});check(!slot.isConnected,'拒绝任意外部图片地址');
+  await install({quota:data});await install({quota:null});check(!slot.isConnected,'切回跟随模式移除固定组件');
+  await install({quota:data});window.__petsPetSidebar.destroy();check(!$('[data-petspet-sidebar-owned="quota"]'),'退出清除组件');
+  $('#checks').textContent=results.join('\n');
+ }catch(error){$('#checks').textContent=results.join('\n')+'\n失败 · '+error.message}finally{document.documentElement.classList.remove('dark');await render();$('.scroll').scrollTop=0}
+}
+fetch('Assets/sidebar.js',{cache:'no-store'}).then(r=>r.text()).then(async source=>{install=(0,eval)('('+source+')');await runChecks();setInterval(render,5000)}).catch(error=>{$('#checks').textContent='正式显示代码未载入：'+error.message});render();
+</script></main></body></html>

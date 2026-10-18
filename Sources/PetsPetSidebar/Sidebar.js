@@ -1,7 +1,7 @@
 // Pet's Pet sidebar renderer. Local records are supplied by the native controller.
 (function setupPetsPetSidebar(settings) {
   const key = '__petsPetSidebar';
-  const version = 6;
+  const version = 8;
   const previous = window[key];
   if (previous?.version === version) {
     previous.configure(settings);
@@ -26,6 +26,7 @@
   let hoverTarget = null;
   let projectDirectoryCache = null;
   let directoryReadAt = 0;
+  let quota = null;
   const media = window.matchMedia('(prefers-color-scheme: dark)');
   const style = document.createElement('style');
   style.setAttribute(owned, 'style');
@@ -47,12 +48,91 @@
       border: 1px solid #8884; box-shadow: 0 3px 14px #0002;
       font: 12px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; white-space: pre-line; }
     [${owned}="tooltip"][hidden] { display: none; }
+    [${owned}="quota"] { box-sizing: border-box; position: absolute; inset-inline: 0; z-index: 21;
+      display: flex; justify-content: center; height: 80px; padding: 0; background: none;
+      opacity: .78; pointer-events: none; user-select: none; }
+    [${owned}="quota"] img { display: block; width: 144px; height: 80px; max-width: none; }
+    [${owned}="quota-spacer"] { flex: 0 0 auto; width: 1px; pointer-events: none; }
   `;
   const tooltip = document.createElement('div');
   tooltip.id = 'petspet-thread-tokens-tooltip';
   tooltip.setAttribute(owned, 'tooltip');
   tooltip.setAttribute('role', 'tooltip');
   tooltip.hidden = true;
+  const quotaSlot = document.createElement('div');
+  quotaSlot.setAttribute(owned, 'quota');
+  const quotaImage = document.createElement('img');
+  quotaImage.draggable = false;
+  quotaSlot.append(quotaImage);
+  const quotaLayout = new ResizeObserver(queuePaint);
+  const quotaObserved = new Set();
+  const quotaSpacers = new Map();
+
+  function clearQuotaSpacing() {
+    for (const spacer of quotaSpacers.values()) spacer.remove();
+    quotaSpacers.clear();
+  }
+
+  function observeQuota(elements) {
+    const next = new Set(elements);
+    for (const element of quotaObserved) if (!next.has(element)) { quotaLayout.unobserve(element); quotaObserved.delete(element); }
+    for (const element of next) if (!quotaObserved.has(element)) { quotaLayout.observe(element); quotaObserved.add(element); }
+  }
+
+  function validQuotaPayload(proposed) {
+    // Only native PNGs are accepted; the renderer cannot fetch arbitrary URLs.
+    return !!(proposed && ['light', 'dark'].every(key => typeof proposed[key] === 'string' &&
+      proposed[key].length <= 128000 && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(proposed[key])) &&
+      typeof proposed.label === 'string' && proposed.label.length <= 512);
+  }
+
+  function quotaBottomOffset(rootBottom, avatarBottom) {
+    if (!Number.isFinite(rootBottom) || !Number.isFinite(avatarBottom)) return null;
+    const bottom = rootBottom - avatarBottom - 8;
+    return bottom >= 0 && bottom <= 80 ? bottom : null;
+  }
+
+  function paintQuota() {
+    if (!quota) { quotaSlot.remove(); clearQuotaSpacing(); observeQuota([]); return; }
+    // Anchor to the sidebar, without creating a separate footer or reducing
+    // the list viewport. A transparent spacer in the scrolling content lets
+    // the last chat scroll above the floating component.
+    const roots = [...document.querySelectorAll('[data-sidebar-navigation-root]')].filter(root =>
+      root.getClientRects().length && !root.closest('[hidden], [inert], [aria-hidden="true"], [data-sidebar-collapsed]'));
+    const root = roots.length === 1 ? roots[0] : null;
+    const scrolls = root ? [...root.querySelectorAll('[data-app-action-sidebar-scroll], .overflow-y-auto')]
+      .filter(element => element.getClientRects().length && element.getBoundingClientRect().width >= 160 &&
+        element.getBoundingClientRect().height >= 80 && ['auto', 'scroll'].includes(getComputedStyle(element).overflowY)) : [];
+    const avatars = root ? [...root.parentElement.querySelectorAll('[data-app-navigation-rail] .sidebar-item button .rounded-full')]
+      .filter(element => element.getClientRects().length && !element.closest('[hidden], [inert]') && getComputedStyle(element).visibility !== 'hidden' &&
+        element.getBoundingClientRect().width >= 16 && element.getBoundingClientRect().width <= 48) : [];
+    // Avatar initials deliberately have aria-hidden=true; they are still the
+    // visible circle. The button supplies the accessible name.
+    const avatar = avatars.length === 1 ? avatars[0] : null;
+    if (!avatar || !scrolls.length || root.getBoundingClientRect().width < 160) {
+      quotaSlot.remove(); clearQuotaSpacing(); observeQuota(root ? [root] : []); return;
+    }
+    observeQuota([root, avatar, ...scrolls]);
+    // The native 144×80 image contains 8 pt transparent padding around its
+    // 128×64 body. Align the body's bottom, rather than the PNG's outer edge.
+    const bottom = quotaBottomOffset(root.getBoundingClientRect().bottom, avatar.getBoundingClientRect().bottom);
+    if (bottom === null) { quotaSlot.remove(); clearQuotaSpacing(); return; }
+    const offset = `${bottom}px`;
+    if (quotaSlot.style.bottom !== offset) quotaSlot.style.bottom = offset;
+    for (const [scroll, spacer] of quotaSpacers) if (!scrolls.includes(scroll)) { spacer.remove(); quotaSpacers.delete(scroll); }
+    const imageTop = root.getBoundingClientRect().bottom - bottom - 80;
+    for (const scroll of scrolls) {
+      let spacer = quotaSpacers.get(scroll);
+      if (!spacer) { spacer = document.createElement('div'); spacer.setAttribute(owned, 'quota-spacer'); spacer.setAttribute('aria-hidden', 'true'); quotaSpacers.set(scroll, spacer); }
+      const height = `${Math.max(0, scroll.getBoundingClientRect().bottom - imageTop)}px`;
+      if (spacer.style.height !== height) spacer.style.height = height;
+      if (spacer.parentElement !== scroll || scroll.lastElementChild !== spacer) scroll.append(spacer);
+    }
+    const source = (quota.appearance === 'dark' || quota.appearance !== 'light' && darkMode()) ? quota.dark : quota.light;
+    if (quotaImage.getAttribute('src') !== source) quotaImage.src = source;
+    setAttribute(quotaImage, 'alt', quota.label);
+    if (quotaSlot.parentElement !== root) root.append(quotaSlot);
+  }
 
   function darkMode() {
     const html = document.documentElement;
@@ -172,6 +252,7 @@
     if (disposed || !document.body) return;
     if (!style.isConnected) document.head.append(style);
     if (!tooltip.isConnected) document.body.append(tooltip);
+    paintQuota();
     const tones = darkMode() ? ['#383838', '#595959', '#868686', '#b6b6b6', '#eeeeee']
                              : ['#e7e7e7', '#cdcdcd', '#9e9e9e', '#696969', '#252525'];
     syncRows(threadSelector, threadElements, enabled.tokens,
@@ -228,7 +309,7 @@
   observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true,
     attributeFilter: ['data-app-action-sidebar-thread-id', 'data-app-action-sidebar-thread-host-id',
       'data-app-action-sidebar-thread-kind', 'data-app-action-sidebar-project-id', 'data-sidebar-project-kind',
-      'aria-labelledby', 'class', 'data-theme'] });
+      'aria-labelledby', 'class', 'data-theme', 'hidden', 'inert', 'aria-hidden', 'data-sidebar-collapsed', 'data-sidebar-navigation-root'] });
   const events = [
     [document, 'pointerover', pointer, true], [document, 'pointermove', pointer, true],
     [document, 'pointerout', leave, true], [document, 'pointerdown', hideHint, true],
@@ -265,6 +346,8 @@
     version,
     configure(next) {
       enabled = { tokens: next?.tokens === true, projects: next?.projects === true };
+      const proposed = next?.quota;
+      quota = validQuotaPayload(proposed) ? proposed : null;
       lastContact = Date.now(); paint();
     },
     async requested() {
@@ -276,7 +359,7 @@
         projects = [...document.querySelectorAll(projectSelector)].filter(localProject)
           .map(row => ({ id: projectId(row), roots: map.get(projectId(row)) || [] })).filter(project => project.id).slice(0, 200);
       }
-      return { ids, projects, threadRows: document.querySelectorAll(threadSelector).length,
+      return { ids, projects, quotaMounted: quotaSlot.isConnected, threadRows: document.querySelectorAll(threadSelector).length,
         projectRows: document.querySelectorAll(projectSelector).length };
     },
     update(next) {
@@ -285,10 +368,10 @@
     },
     destroy() {
       if (disposed) return { ok: true };
-      disposed = true; observer.disconnect(); clearInterval(clock); clearTimeout(repaint); hideHint();
+      disposed = true; observer.disconnect(); quotaLayout.disconnect(); quotaObserved.clear(); clearQuotaSpacing(); clearInterval(clock); clearTimeout(repaint); hideHint();
       media.removeEventListener('change', queuePaint);
       for (const [target, name, listener, capture] of events) target.removeEventListener(name, listener, capture);
-      for (const element of [...threadElements.values(), ...projectElements.values(), style, tooltip]) element.remove();
+      for (const element of [...threadElements.values(), ...projectElements.values(), style, tooltip, quotaSlot]) element.remove();
       threadElements.clear(); projectElements.clear();
       if (window[key] === api) delete window[key];
       return { ok: true };

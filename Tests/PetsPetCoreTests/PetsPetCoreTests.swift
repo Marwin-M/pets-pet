@@ -257,12 +257,20 @@ final class QuotaDisplayModeTests {
     }
 
     func testSavedSelectionDefaultsAndRemainsIndependentOfAccount() {
+        expectEqual(ComponentPosition(savedValue: nil), .followPet)
+        expectEqual(ComponentPosition(savedValue: "future_mode"), .followPet)
+        expectEqual(ComponentPosition(savedValue: ""), .followPet)
         expectEqual(QuotaDisplayMode(savedValue: nil), .automatic)
         expectEqual(QuotaDisplayMode(savedValue: "future_mode"), .automatic)
         expectEqual(QuotaDisplayMode(savedValue: ""), .automatic)
         let suite = "com.marwin.petspet.mode-checks.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
+        for position in ComponentPosition.allCases {
+            defaults.set(position.rawValue, forKey: ComponentPosition.defaultsKey)
+            expectEqual(ComponentPosition(savedValue: UserDefaults(suiteName: suite)!.string(forKey: ComponentPosition.defaultsKey)), position)
+            expectEqual(QuotaDisplayMode(savedValue: defaults.string(forKey: QuotaDisplayMode.defaultsKey)), .automatic)
+        }
         for choice in QuotaDisplayMode.allCases {
             defaults.set(choice.rawValue, forKey: QuotaDisplayMode.defaultsKey)
             let restored = QuotaDisplayMode(savedValue: UserDefaults(suiteName: suite)!.string(forKey: QuotaDisplayMode.defaultsKey))
@@ -694,58 +702,65 @@ final class TrackingCadenceTests {
 final class DailyTokenUsageTests {
     let utc = TimeZone(secondsFromGMT: 0)!
     let now = ISO8601DateFormatter().date(from: "2026-10-17T15:59:30Z")!
-    func parse(_ buckets: String, at date: Date? = nil) throws -> DailyTokenUsageSnapshot {
-        try DailyTokenUsageParser.parse(Data("{\"dailyUsageBuckets\":\(buckets)}".utf8), at: date ?? now)
+    func snapshot(_ tokens: Int64, complete: Bool = true, at date: Date? = nil, zone: TimeZone? = nil) -> DailyTokenUsageSnapshot {
+        let date = date ?? now, zone = zone ?? utc
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
+        let start = calendar.startOfDay(for: date)
+        return DailyTokenUsageSnapshot(dayStart: start, dayEnd: calendar.date(byAdding: .day, value: 1, to: start)!, timeZoneIdentifier: zone.identifier, input: tokens, cached: tokens / 2, output: 0, isComplete: complete, fetchedAt: date)!
     }
     func title(_ snapshot: DailyTokenUsageSnapshot?, loading: Bool = false, at date: Date? = nil, zone: TimeZone? = nil) -> String {
         DailyTokenUsageMenu(snapshot: snapshot, loading: loading, at: date ?? now, timeZone: zone ?? utc).title
     }
-    func testOfficialTotalAndExplicitZero() throws {
-        let snapshot = try parse(#"[{"startDate":"2026-10-16","tokens":99},{"startDate":"2026-10-17","tokens":1234567}]"#)
-        expectEqual(title(snapshot), "今日 Token：1,234,567")
-        expectEqual(title(try parse(#"[{"startDate":"2026-10-17","tokens":0}]"#)), "今日 Token：0")
-        expectEqual(title(try parse(#"[{"startDate":"2026-10-17","tokens":9223372036854775807}]"#)), "今日 Token：9,223,372,036,854,775,807")
-        let tip = DailyTokenUsageMenu(snapshot: snapshot, at: now, timeZone: utc).toolTip
+    func testLocalTotalAndExplicitZero() {
+        let value = snapshot(1234567)
+        expectEqual(title(value), "今日 Token：1,234,567")
+        expectEqual(title(snapshot(0)), "今日 Token：0")
+        expectEqual(title(snapshot(Int64.max)), "今日 Token：9,223,372,036,854,775,807")
+        let tip = DailyTokenUsageMenu(snapshot: value, at: now, timeZone: utc).toolTip
         expectTrue(tip.contains("2026-10-17"))
-        expectTrue(tip.contains("官方未说明日界线时区"))
+        expectTrue(tip.contains("仅覆盖本机"))
+        expectTrue(tip.contains("缓存和推理不重复相加"))
+        expectFalse(tip.contains("官方统计"))
     }
-    func testMissingAndLoadingNeverInventZero() throws {
+    func testMissingAndLoadingNeverInventZero() {
         expectEqual(title(nil), "今日 Token：暂不可用")
         expectEqual(title(nil, loading: true), "今日 Token：读取中…")
-        for json in ["{}", #"{"dailyUsageBuckets":null}"#, #"{"dailyUsageBuckets":[]}"#, #"{"dailyUsageBuckets":[{"startDate":"2026-10-16","tokens":99}]}"#] {
-            let snapshot = try DailyTokenUsageParser.parse(Data(json.utf8), at: now)
-            expectEqual(title(snapshot), "今日 Token：暂不可用")
-        }
+        expectEqual(title(snapshot(42, complete: false)), "今日 Token：42（部分）")
+        expectEqual(title(snapshot(0, complete: false)), "今日 Token：暂不可用")
+        expectTrue(DailyTokenUsageMenu(snapshot: snapshot(42, complete: false), at: now, timeZone: utc).toolTip.contains("记录不完整"))
     }
-    func testFreshnessAndMidnightUseSelectedDate() throws {
-        let snapshot = try parse(#"[{"startDate":"2026-10-17","tokens":42}]"#)
-        expectEqual(title(snapshot, loading: true), "今日 Token：42")
-        expectEqual(title(snapshot, at: now.addingTimeInterval(150)), "今日 Token：等待刷新")
-        expectEqual(title(snapshot, at: now.addingTimeInterval(-6)), "今日 Token：等待刷新")
-        expectEqual(title(snapshot, loading: true, at: now.addingTimeInterval(150)), "今日 Token：读取中…")
+    func testFreshnessAndMidnightUseSelectedDate() {
+        let value = snapshot(42)
+        expectEqual(title(value, loading: true), "今日 Token：42")
+        expectEqual(title(value, at: now.addingTimeInterval(150)), "今日 Token：等待刷新")
+        expectEqual(title(value, at: now.addingTimeInterval(-6)), "今日 Token：等待刷新")
+        expectEqual(title(value, loading: true, at: now.addingTimeInterval(150)), "今日 Token：读取中…")
         let shanghai = TimeZone(secondsFromGMT: 8 * 3600)!
-        expectEqual(title(snapshot, zone: shanghai), "今日 Token：42")
-        expectEqual(title(snapshot, at: now.addingTimeInterval(31), zone: shanghai), "今日 Token：暂不可用")
-        let boundary = ISO8601DateFormatter().date(from: "2026-12-31T16:00:00Z")!
-        let year = try parse(#"[{"startDate":"2026-12-31","tokens":12},{"startDate":"2027-01-01","tokens":34}]"#, at: boundary)
-        expectEqual(title(year, at: boundary), "今日 Token：12")
-        expectEqual(title(year, at: boundary, zone: shanghai), "今日 Token：34")
+        expectEqual(title(value, zone: shanghai), "今日 Token：等待刷新")
+        let local = snapshot(42, zone: shanghai)
+        expectEqual(title(local, zone: shanghai), "今日 Token：42")
+        expectEqual(title(local, at: now.addingTimeInterval(31), zone: shanghai), "今日 Token：等待刷新")
+        let boundary = ISO8601DateFormatter().date(from: "2026-12-31T15:59:30Z")!
+        let year = snapshot(12, at: boundary, zone: shanghai)
+        expectEqual(title(year, at: boundary, zone: shanghai), "今日 Token：12")
+        expectEqual(title(year, at: boundary.addingTimeInterval(31), zone: shanghai), "今日 Token：等待刷新")
+        let ny = TimeZone(identifier: "America/New_York")!
+        let spring = snapshot(0, at: ISO8601DateFormatter().date(from: "2026-03-08T12:00:00Z")!, zone: ny)
+        expectEqual(spring.dayEnd.timeIntervalSince(spring.dayStart), 23 * 3600)
     }
-    func testMalformedBucketsFailSafely() {
-        for buckets in [
-            #"[{"startDate":"2026-02-30","tokens":1}]"#,
-            #"[{"startDate":"2026-2-03","tokens":1}]"#,
-            #"[{"startDate":"2026-10-17","tokens":-1}]"#,
-            #"[{"startDate":"2026-10-17","tokens":1},{"startDate":"2026-10-17","tokens":2}]"#,
-            #"[{"startDate":"2026-10-17","tokens":null}]"#,
-            #"[{"startDate":"2026-10-17","tokens":true}]"#,
-            #"[{"startDate":"2026-10-17","tokens":1.5}]"#,
-            #"[{"startDate":"2026-10-17","tokens":9223372036854775808}]"#,
-            #"{"startDate":"2026-10-17","tokens":1}"#
-        ] { expectThrows(try parse(buckets)) }
+    func testInvalidSnapshotsFailSafely() {
+        func value(_ input: Int64, _ cached: Int64, _ output: Int64) -> DailyTokenUsageSnapshot? {
+            DailyTokenUsageSnapshot(dayStart: now, dayEnd: now.addingTimeInterval(86400), timeZoneIdentifier: utc.identifier, input: input, cached: cached, output: output, isComplete: true, fetchedAt: now)
+        }
+        expectNil(value(-1, 0, 0))
+        expectNil(value(1, 2, 0))
+        expectNil(value(1, 0, -1))
+        expectNil(value(Int64.max, 0, 1))
+        let valid = value(100, 80, 20)!
+        expectEqual(valid.total, 120)
     }
     func testMenuOrderAndQuotaIndependence() throws {
-        let usage = try parse(#"[{"startDate":"2026-10-17","tokens":12345}]"#)
+        let usage = snapshot(12345)
         let quota = QuotaSnapshot(fiveHour: QuotaWindow(usedPercent: 34, windowDurationMins: 300, resetsAt: now.addingTimeInterval(1000).timeIntervalSince1970), weekly: QuotaWindow(usedPercent: 12, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(86400).timeIntervalSince1970), fetchedAt: now)
         for snapshot in [quota, nil] {
             for mode in QuotaDisplayMode.allCases {
@@ -768,10 +783,10 @@ final class DailyTokenUsageTests {
 let identity = PetIdentityTests(), placement = PlacementTests(), quotas = QuotaTests(), displayModes = QuotaDisplayModeTests(), version120 = Version120Tests(), version122 = Version122Tests(), petClicks = PetClickTests(), cadence = TrackingCadenceTests()
 let dailyTokens = DailyTokenUsageTests()
 let checks: [(String, () throws -> Void)] = [
-    ("daily official totals and explicit zero", dailyTokens.testOfficialTotalAndExplicitZero),
+    ("local daily totals and explicit zero", dailyTokens.testLocalTotalAndExplicitZero),
     ("daily missing buckets and loading are not zero", dailyTokens.testMissingAndLoadingNeverInventZero),
     ("daily freshness, midnight and year boundaries", dailyTokens.testFreshnessAndMidnightUseSelectedDate),
-    ("daily malformed and ambiguous buckets rejected", dailyTokens.testMalformedBucketsFailSafely),
+    ("invalid local daily snapshots rejected", dailyTokens.testInvalidSnapshotsFailSafely),
     ("menu order and independent daily/quota availability", dailyTokens.testMenuOrderAndQuotaIndependence),
     ("idle tracking stays at one second without fast timer", cadence.testIdleNeverStartsFastPollingByItself),
     ("drag activity expires without mouse up and resumes", cadence.testMovementRefreshesBriefFastWindowAndThenExpires),

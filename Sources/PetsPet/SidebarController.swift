@@ -1,15 +1,19 @@
 import AppKit
 import PetsPetSidebar
 
-/// Owns only Pet's Pet sidebar elements, independently of the pet overlay.
+/// Owns Pet's Pet sidebar elements, independently of pet detection.
 @MainActor final class SidebarController {
     var onChange: (() -> Void)?
     private(set) var tokensEnabled: Bool
     private(set) var projectsEnabled: Bool
+    private(set) var quotaEnabled = false
+    var quotaProvider: (() -> [String: Any]?)?
+    private(set) var quotaStatus = "侧栏底部：等待定位" { didSet { if oldValue != quotaStatus { onChange?() } } }
+    var hasEnabledFeatures: Bool { tokensEnabled || projectsEnabled || quotaEnabled }
     private(set) var status = "侧栏：等待连接" { didSet { if oldValue != status { onChange?() } } }
     private(set) var needsConnection = false { didSet { if oldValue != needsConnection { onChange?() } } }
     private(set) var tokenStatus = "" { didSet { if oldValue != tokenStatus { onChange?() } } }
-    private(set) var connected = false
+    private(set) var connected = false { didSet { if oldValue != connected { onChange?() } } }
     private(set) var opening = false { didSet { onChange?() } }
     private let preferences: UserDefaults
     private let discovery: SidebarDiscovery
@@ -34,14 +38,24 @@ import PetsPetSidebar
     }
 
     func start() { script = try? SidebarScript.load(); restart() }
+    func setQuotaEnabled(_ enabled: Bool) {
+        guard quotaEnabled != enabled else { return }
+        quotaEnabled = enabled
+        if !hasEnabledFeatures { openingTask?.cancel() }
+        if script != nil { restart() }
+    }
+    func refreshQuota() {
+        // Model refreshes must not turn an offline connection into a retry loop.
+        if quotaEnabled && connected && !paused { restart() }
+    }
     func setTokens(_ enabled: Bool) {
         tokensEnabled = enabled; preferences.set(enabled, forKey: "sidebarTokensEnabled")
-        if !(tokensEnabled || projectsEnabled) { openingTask?.cancel() }
+        if !hasEnabledFeatures { openingTask?.cancel() }
         restart()
     }
     func setProjects(_ enabled: Bool) {
         projectsEnabled = enabled; preferences.set(enabled, forKey: "sidebarProjectsEnabled")
-        if !(tokensEnabled || projectsEnabled) { openingTask?.cancel() }
+        if !hasEnabledFeatures { openingTask?.cancel() }
         restart()
     }
     func setPaused(_ value: Bool) {
@@ -62,7 +76,7 @@ import PetsPetSidebar
                 await self.cleanup()
                 guard self.revision == current, !Task.isCancelled else { return }
             }
-            if self.paused || !(self.tokensEnabled || self.projectsEnabled) {
+            if self.paused || !self.hasEnabledFeatures {
                 await self.cleanup()
                 self.needsConnection = false
                 self.status = self.paused ? "侧栏：已暂停" : "侧栏：Pet’s Pet 显示已关闭"
@@ -102,7 +116,8 @@ import PetsPetSidebar
                     let connection: SidebarCDPConnection
                     if let existing = sessions[target.id] { connection = existing }
                     else { connection = try await discovery.connect(target); sessions[target.id] = connection }
-                    let options: [String: Any] = ["tokens": tokensEnabled, "projects": projectsEnabled]
+                    let options: [String: Any] = ["tokens": tokensEnabled, "projects": projectsEnabled,
+                                                  "quota": quotaEnabled ? quotaProvider?() ?? NSNull() : NSNull()]
                     let requested = try await connection.evaluate("\(script!) (\(try SidebarScript.json(options)))")
                     requests.append((connection, requested))
                 } catch {
@@ -118,9 +133,13 @@ import PetsPetSidebar
             }
             try Task.checkCancellation()
             let ids = Array(Set(requests.flatMap { $0.1["ids"] as? [String] ?? [] }))
+            if quotaEnabled {
+                let mounted = requests.filter { $0.1["quotaMounted"] as? Bool == true }.count
+                quotaStatus = mounted > 0 ? "固定在侧栏底部（\(mounted) 个窗口）" : "侧栏底部：等待侧栏展开或定位，暂未显示"
+            }
             let reader = usage
             let usageRecords: [String: LocalUsageRecord]?
-            do { usageRecords = try await Task.detached(priority: .utility) { try reader.records(ids) }.value }
+            do { usageRecords = tokensEnabled && !ids.isEmpty ? try await Task.detached(priority: .utility) { try reader.records(ids) }.value : [:] }
             catch { usageRecords = nil }
             let totals = usageRecords?.mapValues(\.total)
             let detailReader = usageDetails
@@ -203,14 +222,14 @@ import PetsPetSidebar
 
     /// Only this explicit menu action may ask Codex to quit and reopen.
     func enableConnection() {
-        guard !opening, !connected, !paused, tokensEnabled || projectsEnabled, script != nil else { return }
+        guard !opening, !connected, !paused, hasEnabledFeatures, script != nil else { return }
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex").first
         guard let appURL = running?.bundleURL ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.openai.codex"),
               Bundle(url: appURL)?.bundleIdentifier == "com.openai.codex" else {
             status = "侧栏：未找到 Codex，请先安装客户端"; return
         }
         let alert = NSAlert()
-        alert.messageText = "启用侧栏用量与文件夹大小"
+        alert.messageText = "启用侧栏连接"
         alert.informativeText = running == nil
             ? "将打开 Codex，并启用仅限本机的页面调试连接，用于在侧栏显示数据。"
             : "需要正常退出并重新打开 Codex，以启用仅限本机的页面调试连接。请先保存工作并等待当前任务结束。若 Codex 拒绝退出，将取消本次操作。"

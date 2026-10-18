@@ -5,16 +5,18 @@
 <title>Pet’s Pet · 菜单整理</title>
 <style>
 *{box-sizing:border-box}body{margin:32px auto;padding:0 24px;max-width:820px;font:13px -apple-system,BlinkMacSystemFont,sans-serif;background:#f5f6f8;color:#29384a}h1{font-size:20px}p{color:#687587;line-height:1.7}.menu{width:300px;padding:7px 0;border:1px solid #c5cbd1;border-radius:10px;background:#e9eceeea;box-shadow:0 8px 24px #18223118;color:#222}.row,summary{padding:5px 18px;line-height:1.35}.muted{color:#777}.separator{height:1px;background:#c4c8cb;margin:6px 12px}.action{color:#222}summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}summary:after{content:'›';float:right;color:#666}details{position:relative}details[open]>summary,summary:hover{background:#2778e8;color:white}details[open]>summary:after{color:white}.child{position:absolute;z-index:2;left:calc(100% + 4px);top:-6px;width:275px}.check{display:inline-block;width:15px;margin-left:-13px}small{display:block;margin-top:20px;color:#687587;line-height:1.7;max-width:620px}@media(max-width:680px){.child{position:static;margin:4px 12px;width:auto;box-shadow:none}.menu{max-width:100%}}
+.info{color:#1d1d1f}.info.muted{color:#45474b}
+@media(prefers-color-scheme:dark){body{background:#17191d;color:#e6e9ed}.menu{background:#2b2d31;color:#e6e9ed;border-color:#55585d}.muted{color:#aaa}.action{color:#e6e9ed}.info{color:#f5f5f7}.info.muted{color:#d9dade}.separator{background:#505258}}
 .child .child{position:static;margin:4px 12px;width:auto;box-shadow:none}
 </style>
 <h1>菜单整理</h1>
 <p>点击三个分组查看子菜单。示例数据仅用于核对排布。</p>
 <div class="menu" aria-label="Pet’s Pet 菜单预览">
-  <div class="row muted">Pet’s Pet · 1.4.1</div>
-  <div class="row muted">正在跟随宠物</div>
+  <div class="row muted info">Pet’s Pet · 1.5.0</div>
+  <div class="row muted info">正在跟随宠物</div>
   <div class="separator"></div>
-  <div id="data"><div class="row muted">正在读取预览样本…</div></div>
-  <div class="row muted" id="updated">数据更新于：--</div>
+  <div id="data" class="info"><div class="row muted">正在读取预览样本…</div></div>
+  <div class="row muted info" id="updated">数据更新于：--</div>
   <div class="row action">立即刷新</div>
   <div class="separator"></div>
   <details><summary>显示设置</summary><div class="menu child">
@@ -37,7 +39,7 @@
   </div></details>
   <div class="separator"></div><div class="row">退出 Pet’s Pet</div>
 </div>
-<small>菜单布局评审样本，桌面效果以安装版为准。今日 Token 使用官方每日统计，缺数据时显示“暂不可用”，统计日期及日界线说明见该行提示。</small>
+<small>菜单布局评审样本，桌面效果以安装版为准。今日 Token 按本机时区从当天 0 点起统计输入＋输出，包含缓存且不重复计数，仅覆盖本机记录；记录不完整时会注明，未打包。</small>
 <script>
 fetch('Assets/menu-layout.json').then(response=>{if(!response.ok)throw Error();return response.json()}).then(sample=>{
   const data=document.getElementById('data');data.replaceChildren();

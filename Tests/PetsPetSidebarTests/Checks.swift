@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 import SQLite3
+import JavaScriptCore
 import PetsPetSidebar
 
 private var assertions = 0
@@ -21,10 +22,44 @@ private func database(_ file: URL, sql: String) throws {
 }
 
 @main struct Checks {
+    @MainActor static func quotaAlignment() throws {
+        // Execute the production geometry function in the system JS engine;
+        // this does not open a browser or assert that DOM integration was tested.
+        let source = try SidebarScript.load()
+        let start = source.range(of: "  function validQuotaPayload(")!.lowerBound
+        let end = source.range(of: "\n  function paintQuota()")!.lowerBound
+        let context = JSContext()!
+        context.evaluateScript(String(source[start..<end]))
+        let function = context.objectForKeyedSubscript("quotaBottomOffset")!
+        let validPayload = context.objectForKeyedSubscript("validQuotaPayload")!
+        let assets = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Previews/Assets")
+        for name in ["current", "pro", "loading", "error"] {
+            let light = "data:image/png;base64," + (try Data(contentsOf: assets.appendingPathComponent("position-\(name).png"))).base64EncodedString()
+            let dark = "data:image/png;base64," + (try Data(contentsOf: assets.appendingPathComponent("position-\(name)-dark.png"))).base64EncodedString()
+            try check(validPayload.call(withArguments: [["light": light, "dark": dark, "label": "review"]])!.toBool(), "\(name) preview's actual images pass production validation")
+        }
+        let oversized = "data:image/png;base64," + (try Data(contentsOf: assets.appendingPathComponent("current.png"))).base64EncodedString()
+        try check(!validPayload.call(withArguments: [["light": oversized, "dark": oversized, "label": "review"]])!.toBool(), "original 3× preview images reproduce the size rejection")
+        for bad in ["https://example.com/image.png", "data:text/html;base64,aA==", "data:image/png;base64,<bad>"] {
+            try check(!validPayload.call(withArguments: [["light": bad, "dark": bad, "label": "review"]])!.toBool(), "invalid or external images stay rejected")
+        }
+        for (root, avatar, expected) in [(477.0, 465.0, 4.0), (540, 528, 4), (-100, -112, 4), (477.5, 465.25, 4.25), (500, 492, 0), (500, 412, 80)] {
+            let result = function.call(withArguments: [root, avatar])!
+            try check(!result.isNull && result.toDouble() == expected, "body offset tracks avatar at \(root)/\(avatar)")
+            try check(root - result.toDouble() - 8 == avatar, "visible body bottom, not transparent PNG edge, aligns")
+        }
+        for (root, avatar) in [(500.0, 493.0), (500, 411), (.infinity, 480), (500, .nan)] {
+            try check(function.call(withArguments: [root, avatar])!.isNull, "unusable or invalid avatar geometry stays hidden")
+        }
+        try check(context.exception == nil, "production geometry executes without JavaScript errors")
+    }
+
     @MainActor static func main() async throws {
+        try quotaAlignment()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("PetsPetSidebarChecks-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        assertions += try await DailyUsageChecks.run(root: root)
         let home = root.appendingPathComponent("home")
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
         let ids = (0..<6).map { _ in UUID().uuidString.lowercased() }

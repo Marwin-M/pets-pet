@@ -27,10 +27,6 @@ final class QuotaClient {
         perform({ try self.request(method: "account/rateLimits/read", includeAccount: true) { try QuotaParser.parse($0, accountData: $1) } }, completion: completion)
     }
 
-    func refreshDailyUsage(completion: @escaping (Result<DailyTokenUsageSnapshot, Error>) -> Void) {
-        perform({ try self.request(method: "account/usage/read", includeAccount: false) { data, _ in try DailyTokenUsageParser.parse(data) } }, completion: completion)
-    }
-
     private func perform<Value>(_ operation: @escaping () throws -> Value, completion: @escaping (Result<Value, Error>) -> Void) {
         lock.lock()
         guard !busy, !stopped else { lock.unlock(); return }

@@ -17,7 +17,7 @@ public struct TokenBreakdown: Equatable, Sendable {
 
     public var fields: [String: Int64] { ["input": input, "cached": cached, "output": output, "total": total] }
 
-    fileprivate static func parse(_ values: [String: Any]) -> TokenBreakdown? {
+    static func parse(_ values: [String: Any]) -> TokenBreakdown? {
         func integer(_ key: String) -> Int64? {
             guard let value = values[key] as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID(),
                   value.doubleValue.isFinite, value.doubleValue.rounded() == value.doubleValue,

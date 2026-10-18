@@ -79,6 +79,26 @@ private func check(_ value: @autoclosure () -> Bool, _ message: String) throws {
         try check(requestCount() == disabledAt, "disabled features perform no discovery")
         try check(!preferences.bool(forKey: "sidebarTokensEnabled") && !preferences.bool(forKey: "sidebarProjectsEnabled"), "feature choices remain saved")
 
+        controller.quotaProvider = { ["light": "data:image/png;base64,aA==", "dark": "data:image/png;base64,aA==", "label": "quota fixture"] }
+        controller.setQuotaEnabled(true)
+        try await waitUntil("fixed quota connects with both existing sidebar features off") { controller.connected && controller.quotaStatus.contains("固定在侧栏底部") }
+        try check(controller.hasEnabledFeatures && !controller.tokensEnabled && !controller.projectsEnabled, "fixed quota independently owns connection demand")
+        let options = try JSONSerialization.jsonObject(with: Data(contentsOf: portFile.appendingPathExtension("options"))) as! [String: Bool]
+        try check(options["quota"] == true && options["tokens"] == false && options["projects"] == false, "fixed quota is sent without re-enabling the other features")
+        controller.setPaused(true)
+        try await waitUntil("fixed quota pauses with sleep") { !controller.connected && controller.status == "侧栏：已暂停" }
+        controller.setPaused(false)
+        try await waitUntil("fixed quota resumes without a pet") { controller.connected }
+        try Data().write(to: offline)
+        try await waitUntil("fixed quota detects transport loss") { !controller.connected && controller.needsConnection }
+        let quotaDisconnectedAt = requestCount()
+        controller.refreshQuota()
+        try await Task.sleep(nanoseconds: 200_000_000)
+        try check(requestCount() == quotaDisconnectedAt, "quota data updates do not retry or restart an offline client")
+        controller.setQuotaEnabled(false)
+        try await waitUntil("leaving fixed mode cleans up quota-only connection") { controller.status == "侧栏：Pet’s Pet 显示已关闭" }
+        try FileManager.default.removeItem(at: offline)
+
         controller.setTokens(true)
         try await waitUntil("explicitly enabling a feature can connect") { controller.connected }
         await controller.shutdown()
