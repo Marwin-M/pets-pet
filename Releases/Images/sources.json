@@ -1,0 +1,239 @@
+[
+  {
+    "version": "1.0.0",
+    "file": "1.0.0/preview.png",
+    "source": "dist/releases/1.0.0/preview.png",
+    "kind": "historical screenshot",
+    "sha256": "77fc33b85d4b7f7b8738c7a7e60a0ba829a99803fac11e590b5cd91b8872efec"
+  },
+  {
+    "version": "1.1.0",
+    "file": "1.1.0/preview.png",
+    "source": "dist/releases/1.1.0/preview.png",
+    "kind": "native review sample",
+    "sha256": "33c8f930aef220e778cbe63a158ce5e479cc17faf85341af64bed194f086d601"
+  },
+  {
+    "version": "1.2.0",
+    "file": "1.2.0/preview.png",
+    "source": "dist/releases/1.2.0/preview.png",
+    "kind": "native review sample",
+    "sha256": "33c8f930aef220e778cbe63a158ce5e479cc17faf85341af64bed194f086d601"
+  },
+  {
+    "version": "1.2.0",
+    "file": "1.2.0/current-dark.png",
+    "source": "PetsPet-1.2.0-source.zip:PetsPet-source/Previews/Assets/current-dark.png",
+    "sourcePackageSHA256": "f59a6639210d00d28b6b41172dda9bc5cc6d126f17695a82c489c08c4a43d8a8",
+    "kind": "archived preview asset",
+    "sha256": "ed4db83b620a2032227f953248f382d324820ccbb4bcce00b59362a088ebb4e5"
+  },
+  {
+    "version": "1.2.0",
+    "file": "1.2.0/app-icon.png",
+    "source": "PetsPet-1.2.0-source.zip:PetsPet-source/Previews/Assets/app-icon.png",
+    "sourcePackageSHA256": "f59a6639210d00d28b6b41172dda9bc5cc6d126f17695a82c489c08c4a43d8a8",
+    "kind": "archived preview asset",
+    "sha256": "1e56c74040a412ba90628ed5ccb84fd78ad46b1317b9e9dd8437c49cca922927"
+  },
+  {
+    "version": "1.2.1",
+    "file": "1.2.1/preview.png",
+    "source": "dist/releases/1.2.1/preview.png",
+    "kind": "native review sample",
+    "sha256": "33c8f930aef220e778cbe63a158ce5e479cc17faf85341af64bed194f086d601"
+  },
+  {
+    "version": "1.2.1",
+    "file": "1.2.1/current-dark.png",
+    "source": "PetsPet-1.2.1-source.zip:PetsPet-source/Previews/Assets/current-dark.png",
+    "sourcePackageSHA256": "58b0a1d0d8fa8505291fb0aa6debf2a92f9a82e6c2d5e7eded69c59f0bd6000b",
+    "kind": "archived preview asset",
+    "sha256": "ed4db83b620a2032227f953248f382d324820ccbb4bcce00b59362a088ebb4e5"
+  },
+  {
+    "version": "1.2.2",
+    "file": "1.2.2/preview.png",
+    "source": "dist/releases/1.2.2/preview.png",
+    "kind": "native review sample",
+    "sha256": "fe97c1a1e1a09502a36b99c1b19fdfdc2cf1c225a7eb8878f489c187d98abbed"
+  },
+  {
+    "version": "1.2.2",
+    "file": "1.2.2/current-dark.png",
+    "source": "PetsPet-1.2.2-source.zip:PetsPet-source/Previews/Assets/current-dark.png",
+    "sourcePackageSHA256": "ac5b233935e9d533231d21c06e75bd2a1b32cf3d19568cb6c61b089dec54897b",
+    "kind": "archived preview asset",
+    "sha256": "ae55a411f18e8af6d6d64c0fe4787903bf95526930c0689eecaa76aa0bb512b4"
+  },
+  {
+    "version": "1.2.3",
+    "file": "1.2.3/preview.png",
+    "source": "dist/releases/1.2.3/preview.png",
+    "kind": "native review sample",
+    "sha256": "fe97c1a1e1a09502a36b99c1b19fdfdc2cf1c225a7eb8878f489c187d98abbed"
+  },
+  {
+    "version": "1.2.3",
+    "file": "1.2.3/current-dark.png",
+    "source": "PetsPet-1.2.3-source.zip:PetsPet-source/Previews/Assets/current-dark.png",
+    "sourcePackageSHA256": "370d785154f38ac7a6574d62f91f2828eda41695e6dc02bf1e7bc33b4547eeb5",
+    "kind": "archived preview asset",
+    "sha256": "ae55a411f18e8af6d6d64c0fe4787903bf95526930c0689eecaa76aa0bb512b4"
+  },
+  {
+    "version": "1.3.0",
+    "file": "1.3.0/preview.png",
+    "source": "GitHub Release v1.3.0/preview.png",
+    "kind": "native review sample",
+    "sha256": "e94b15cbad1039555217925ae1a564c1dd8e883c3bf9770ef0de2d49ea186914"
+  },
+  {
+    "version": "1.3.0",
+    "file": "1.3.0/current-dark.png",
+    "source": "PetsPet-1.3.0-source.zip:PetsPet-source/Previews/Assets/current-dark.png",
+    "sourcePackageSHA256": "51c983bdd262dbd90ff89d8477c913f4bf405680cdd03fb0cf173add1ead545e",
+    "kind": "archived preview asset",
+    "sha256": "b61aa0ce1d76b6db40776e9a28593c8515bdf6a95238bca1d2369dd21a333cd5"
+  },
+  {
+    "version": "1.3.0",
+    "file": "1.3.0/sidebar-preview.png",
+    "source": "PetsPet-1.3.0-source.zip:PetsPet-source/Previews/Assets/sidebar-preview.png",
+    "sourcePackageSHA256": "51c983bdd262dbd90ff89d8477c913f4bf405680cdd03fb0cf173add1ead545e",
+    "kind": "archived preview asset",
+    "sha256": "9108201e4c08dfe8880342ea9d59ef89d4aa058b00470ddbd96323ce9d62ebb8"
+  },
+  {
+    "version": "1.4.0",
+    "file": "1.4.0/preview.png",
+    "source": "dist/releases/1.4.0/preview.png",
+    "kind": "native review sample",
+    "sha256": "25a85599f73cd675611f3061ed750fda6415f6aa53ee643190c8770df9889676"
+  },
+  {
+    "version": "1.4.0",
+    "file": "1.4.0/current.png",
+    "source": "PetsPet-1.4.0-source.zip:PetsPet-source/Previews/Assets/current.png",
+    "sourcePackageSHA256": "11e0890af9115dad442c65c4d4eab1b22b5bf7b009f5705635b482adcb0a1b5a",
+    "kind": "archived preview asset",
+    "sha256": "e94b15cbad1039555217925ae1a564c1dd8e883c3bf9770ef0de2d49ea186914"
+  },
+  {
+    "version": "1.4.0",
+    "file": "1.4.0/current-dark.png",
+    "source": "PetsPet-1.4.0-source.zip:PetsPet-source/Previews/Assets/current-dark.png",
+    "sourcePackageSHA256": "11e0890af9115dad442c65c4d4eab1b22b5bf7b009f5705635b482adcb0a1b5a",
+    "kind": "archived preview asset",
+    "sha256": "b61aa0ce1d76b6db40776e9a28593c8515bdf6a95238bca1d2369dd21a333cd5"
+  },
+  {
+    "version": "1.4.0",
+    "file": "1.4.0/pro-dark.png",
+    "source": "PetsPet-1.4.0-source.zip:PetsPet-source/Previews/Assets/pro-dark.png",
+    "sourcePackageSHA256": "11e0890af9115dad442c65c4d4eab1b22b5bf7b009f5705635b482adcb0a1b5a",
+    "kind": "archived preview asset",
+    "sha256": "9a6d141cbbe58d1f8a6b966364b73c4d0d3cbd24bbe8500d94581f306bc409cc"
+  },
+  {
+    "version": "1.4.0",
+    "file": "1.4.0/plus-countdown.png",
+    "source": "PetsPet-1.4.0-source.zip:PetsPet-source/Previews/Assets/plus-countdown.png",
+    "sourcePackageSHA256": "11e0890af9115dad442c65c4d4eab1b22b5bf7b009f5705635b482adcb0a1b5a",
+    "kind": "archived preview asset",
+    "sha256": "fa1ceaf19cb4e1e015df8bd622348e19cd0b8b8c7e831a7cc4f46f855ec9d3d9"
+  },
+  {
+    "version": "1.4.0",
+    "file": "1.4.0/plus-countdown-dark.png",
+    "source": "PetsPet-1.4.0-source.zip:PetsPet-source/Previews/Assets/plus-countdown-dark.png",
+    "sourcePackageSHA256": "11e0890af9115dad442c65c4d4eab1b22b5bf7b009f5705635b482adcb0a1b5a",
+    "kind": "archived preview asset",
+    "sha256": "173f5a77bca8a79b658f98221e1c69a25663515c2867d97370519e42c82a5cd5"
+  },
+  {
+    "version": "1.4.1",
+    "file": "1.4.1/preview.png",
+    "source": "dist/releases/1.4.1/preview.png",
+    "kind": "menu layout illustration (shared native row formatter)",
+    "sha256": "595714a7709f18d4a32e5723ad51d58884af84c266af6cdc249c4f77af216cc8"
+  },
+  {
+    "version": "1.4.1",
+    "file": "1.4.1/current.png",
+    "source": "PetsPet-1.4.1-source.zip:PetsPet-source/Previews/Assets/current.png",
+    "sourcePackageSHA256": "45cace8dd3a67e3fa0bd9d48f4da4bd67130906b9aebcf6bebb970a79121764b",
+    "kind": "archived preview asset",
+    "sha256": "e94b15cbad1039555217925ae1a564c1dd8e883c3bf9770ef0de2d49ea186914"
+  },
+  {
+    "version": "1.4.1",
+    "file": "1.4.1/current-dark.png",
+    "source": "PetsPet-1.4.1-source.zip:PetsPet-source/Previews/Assets/current-dark.png",
+    "sourcePackageSHA256": "45cace8dd3a67e3fa0bd9d48f4da4bd67130906b9aebcf6bebb970a79121764b",
+    "kind": "archived preview asset",
+    "sha256": "b61aa0ce1d76b6db40776e9a28593c8515bdf6a95238bca1d2369dd21a333cd5"
+  },
+  {
+    "version": "1.4.1",
+    "file": "1.4.1/pro.png",
+    "source": "PetsPet-1.4.1-source.zip:PetsPet-source/Previews/Assets/pro.png",
+    "sourcePackageSHA256": "45cace8dd3a67e3fa0bd9d48f4da4bd67130906b9aebcf6bebb970a79121764b",
+    "kind": "archived preview asset",
+    "sha256": "25a85599f73cd675611f3061ed750fda6415f6aa53ee643190c8770df9889676"
+  },
+  {
+    "version": "1.4.1",
+    "file": "1.4.1/pro-dark.png",
+    "source": "PetsPet-1.4.1-source.zip:PetsPet-source/Previews/Assets/pro-dark.png",
+    "sourcePackageSHA256": "45cace8dd3a67e3fa0bd9d48f4da4bd67130906b9aebcf6bebb970a79121764b",
+    "kind": "archived preview asset",
+    "sha256": "9a6d141cbbe58d1f8a6b966364b73c4d0d3cbd24bbe8500d94581f306bc409cc"
+  },
+  {
+    "version": "1.5.0",
+    "file": "1.5.0/preview.png",
+    "source": "dist/releases/1.5.0/preview.png",
+    "kind": "native layout illustration; demonstration values; not a live-client screenshot",
+    "sha256": "a1478c197d2368080fdfc662c95a8f30bf5e33fb9afcab9312ae8acc3be43ad7"
+  },
+  {
+    "version": "1.5.0",
+    "file": "1.5.0/current.png",
+    "source": "PetsPet-1.5.0-source.zip:PetsPet-source/Previews/Assets/current.png",
+    "sourcePackageSHA256": "d4b14458de9630f96d53bcdbebd616974cf62634900a5c4bc15b0483edb10688",
+    "kind": "archived preview asset",
+    "sha256": "e94b15cbad1039555217925ae1a564c1dd8e883c3bf9770ef0de2d49ea186914"
+  },
+  {
+    "version": "1.5.0",
+    "file": "1.5.0/current-dark.png",
+    "source": "PetsPet-1.5.0-source.zip:PetsPet-source/Previews/Assets/current-dark.png",
+    "sourcePackageSHA256": "d4b14458de9630f96d53bcdbebd616974cf62634900a5c4bc15b0483edb10688",
+    "kind": "archived preview asset",
+    "sha256": "b61aa0ce1d76b6db40776e9a28593c8515bdf6a95238bca1d2369dd21a333cd5"
+  },
+  {
+    "version": "1.5.0",
+    "file": "1.5.0/menu.png",
+    "source": "PetsPet-1.5.0-source.zip:PetsPet-source/Previews/Assets/menu.png",
+    "sourcePackageSHA256": "d4b14458de9630f96d53bcdbebd616974cf62634900a5c4bc15b0483edb10688",
+    "kind": "archived preview asset",
+    "sha256": "569d8da2b62b6fa7d856a49b289ae9f7875fc742655fa4e0a1500611bd7ed8fd"
+  },
+  {
+    "version": "1.5.0",
+    "file": "1.5.0/menu-dark.png",
+    "source": "PetsPet-1.5.0-source.zip:PetsPet-source/Previews/Assets/menu-dark.png",
+    "sourcePackageSHA256": "d4b14458de9630f96d53bcdbebd616974cf62634900a5c4bc15b0483edb10688",
+    "kind": "archived preview asset",
+    "sha256": "ed7cbdb72feb14b98a2efe879a2fe328f0ea0b030c9a6da024aa5da9d19ad1d8"
+  },
+  {
+    "version": "1.5.0",
+    "file": "1.5.0/position-layout-dark.png",
+    "source": "git:cce2d40bce8ccab54a219e6d41f1bb154a3be51b:Previews/Assets/position-layout-dark.png",
+    "kind": "published 1.5.0 native layout illustration",
+    "sha256": "c829fe827055d0ab2a61139c3328ce9976c0c8162dc505d2c166514c362ebeef"
+  }
+]
