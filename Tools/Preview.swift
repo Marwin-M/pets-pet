@@ -26,6 +26,45 @@ struct PreviewRenderer {
                 weekly: QuotaWindow(usedPercent: weekly, windowDurationMins: 10080, resetsAt: now.addingTimeInterval(days.map { $0 * 86400 } ?? 200000).timeIntervalSince1970), fetchedAt: now, resetCredits: sampleCards, planType: planType)
             return value
         }
+        if CommandLine.arguments.contains("--position-layout") {
+            let sample = model(34, 12)
+            for dark in [false, true] {
+                let foreground = dark ? Color(white: 0.88) : Color(white: 0.22)
+                let muted = dark ? Color(white: 0.58) : Color(white: 0.48)
+                let surface = dark ? Color(red: 0.13, green: 0.15, blue: 0.18) : Color(red: 0.91, green: 0.94, blue: 0.95)
+                let illustration = VStack(alignment: .leading, spacing: 16) {
+                    Text("侧栏底部 · 半透明悬浮").font(.system(size: 19, weight: .semibold))
+                    HStack(spacing: 0) {
+                        VStack {
+                            Spacer()
+                            Text("M").font(.system(size: 9, weight: .medium)).foregroundStyle(.white)
+                                .frame(width: 24, height: 24).background(Color(red: 0.60, green: 0.34, blue: 0.72), in: Circle())
+                                .padding(.bottom, 12)
+                        }.frame(width: 44)
+                        ZStack(alignment: .bottom) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("最近对话").font(.system(size: 11)).foregroundStyle(muted).frame(height: 32)
+                                ForEach(1...9, id: \.self) { index in
+                                    Text("产品讨论与开发记录 \(String(format: "%02d", index))")
+                                        .font(.system(size: 13)).frame(height: 32, alignment: .leading)
+                                }
+                                Spacer(minLength: 0)
+                            }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16)
+                            QuotaView(model: sample).opacity(0.78).padding(.bottom, 4)
+                        }.frame(width: 264)
+                    }.frame(height: 330).background(surface).clipShape(RoundedRectangle(cornerRadius: 12))
+                    Text("组件底边与左侧头像对齐\n列表保留滚动留白，最后一条聊天可滑到组件上方")
+                        .font(.system(size: 11)).foregroundStyle(muted).lineSpacing(4)
+                    Text("布局示意 · 复用原生组件 · 额度 66 / 88 为演示数值")
+                        .font(.system(size: 9)).foregroundStyle(muted)
+                }.foregroundStyle(foreground).padding(20).frame(width: 348)
+                    .background(dark ? Color(white: 0.09) : Color.white)
+                    .environment(\.colorScheme, dark ? .dark : .light)
+                try write(illustration, to: output.appendingPathComponent(dark ? "position-layout-dark.png" : "position-layout.png"))
+            }
+            print("Updated static position illustrations using the native component; no live-client or browser capture.")
+            return
+        }
         if CommandLine.arguments.contains("--position") {
             let loading = DisplayModel(); loading.now = now
             let failure = DisplayModel(); failure.now = now; failure.loading = false; failure.error = "预览：查询失败"
