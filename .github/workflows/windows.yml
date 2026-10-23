@@ -1,0 +1,52 @@
+name: Windows x64 package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Windows/**'
+      - 'Resources/MenuBarIcon.png'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+    inputs:
+      attach_to_release:
+        description: 'Attach verified Windows package to existing draft v1.6.0'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build, self-test and package Windows x64
+        shell: pwsh
+        run: ./Windows/package.ps1 -Version 1.6.0
+      - name: Save verified package
+        uses: actions/upload-artifact@v4
+        with:
+          name: PetsPet-Windows-1.6.0-x64
+          path: dist/releases/1.6.0/*
+          if-no-files-found: error
+
+  attach:
+    if: github.event_name == 'workflow_dispatch' && inputs.attach_to_release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: PetsPet-Windows-1.6.0-x64
+          path: package
+      - name: Attach package to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          test "$(gh release view v1.6.0 --json isDraft --jq '.isDraft')" = true
+          gh release upload v1.6.0 package/PetsPet-Windows-1.6.0-x64.zip package/SHA256SUMS-Windows.txt
