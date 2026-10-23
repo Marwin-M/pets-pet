@@ -1,15 +1,21 @@
-# Windows 适配版（预览）
+# Pet's Pet 1.6.0 Windows 适配版（预览）
 
 独立的 C# / Windows Forms 实现，为 Windows 版 Codex Desktop 提供额度组件。代码位于本目录，不参与原有 Swift 构建，也不修改 Codex 安装文件。这是有限范围的适配，尚未达到 macOS 版的全部功能。
 
 ## 运行
 
-需要 Windows 10/11 **x64**、.NET Framework 4.8，以及已安装并登录的 Codex Desktop。当前仅在 Windows 11 x64、Codex `26.1016.6573.0` 上验证；Windows 10 和其他客户端版本仍待验证。程序需要可写目录来保存设置和诊断，不要放入 `Program Files`。目前没有签名或 Windows 发布安装包。
+需要 Windows 10/11 **x64**、.NET Framework 4.8，以及已安装并登录的 Codex Desktop。贡献者此前仅在 Windows 11 x64、Codex `26.1016.6573.0` 上验证；Windows 10 和其他客户端版本仍待验证。程序需要可写目录来保存设置和诊断，不要放入 `Program Files`。Windows 包尚未签名。
+
+从 [1.6.0 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0) 下载 `PetsPet-Windows-1.6.0-x64.zip`，解压到个人可写的文件夹，再双击其中的 `PetsPet.exe`。这是免安装便携包，不需要下载 GitHub 自动生成的 Source code。请保留解压后的整个文件夹，程序会在其中创建 `data/` 保存本机设置；不要直接在 ZIP 里运行 EXE。下载页的 `SHA256SUMS-Windows.txt` 可用于核对压缩包完整性。
+
+当前是预览版，Windows 构建与规则检查不等于真实桌面、账号和多屏验收。首次运行可能出现未签名程序提示；确认下载来源与校验值后，再由你决定是否运行，不必关闭系统安全功能。
+
+### 从源码构建
 
 在仓库根目录打开 PowerShell，执行：
 
 ```powershell
-# 将源码生成本目录下的 PetsPet.exe；不安装系统服务或全局工具
+# 将源码生成本目录下的 PetsPet.exe；普通下载用户不需要执行
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Windows\build.ps1
 
 # 启动；之后可直接双击 Windows\PetsPet.exe
@@ -17,6 +23,8 @@ Start-Process -FilePath .\Windows\PetsPet.exe
 ```
 
 `ExecutionPolicy Bypass` 只作用于这一次 PowerShell 进程，不更改系统设置。构建使用 Windows 自带的 .NET Framework C# 编译器，无第三方运行时依赖。重新生成前，请从本目录程序的托盘菜单选择“退出”。
+
+维护者生成版本包时使用 `Windows/package.ps1 -Version 1.6.0`：从当前源码编译、运行规则和渲染检查、核对 EXE 版本及 ZIP 内容，然后写入 `dist/releases/1.6.0/`。GitHub Actions 的 Windows 环境运行同一脚本；下载包在 GitHub Release 的 Assets 中提供，源码仓库不提交 EXE。
 
 先正常打开 Codex，再打开 PetsPet，以便识别客户端的安装位置和服务组件。额度读取使用 `CODEX_HOME` 指定的目录，否则使用当前用户的 `.codex` 目录；如有自定义目录，应让 PetsPet 继承同样的 `CODEX_HOME`。它是一个环境变量，即传给程序的配置值。程序还会保存到 `data/settings.json`，其中的 `codexHome` 可在退出程序后修改。
 
@@ -102,6 +110,6 @@ node .\Windows\checks\sidebar-fixture.mjs
 - `PetsPet.cs`：额度服务、窗口、绘图、跟随、设置及规则检查。
 - `Integration.cs`：点击监听、图标、本机侧栏通信与启动流程。
 - `Sidebar.js`：头像上方组件定位、更新与清理。
-- `build.ps1`、`app.manifest`：生成程序及普通用户权限、屏幕缩放声明。
+- `build.ps1`、`package.ps1`、`AssemblyInfo.cs`、`app.manifest`：版本信息、生成程序、包校验及普通用户权限、屏幕缩放声明。
 - `checks/sidebar-fixture.mjs`：使用固定数据的本地页面和可选模拟接口。
 - `assets/`、`previews/`：Windows 格式图标和固定数据布局示意。

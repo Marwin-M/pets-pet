@@ -229,7 +229,7 @@ namespace PetsPetWindows
                 {
                     try
                     {
-                        Send(process, new { id = 1, method = "initialize", @params = new { clientInfo = new { name = "pets_pet_windows", title = "PetsPet Windows", version = "0.1.0" } } });
+                        Send(process, new { id = 1, method = "initialize", @params = new { clientInfo = new { name = "pets_pet_windows", title = "PetsPet Windows", version = "1.6.0" } } });
                         int lines = 0; string accountPlan = null; bool accountReceived = false; QuotaSnapshot quota = null;
                         while (lines++ < 10000)
                         {

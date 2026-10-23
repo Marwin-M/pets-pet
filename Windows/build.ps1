@@ -29,6 +29,7 @@ $compilerArgs = @(
 $compilerArgs += $references | ForEach-Object { '/reference:' + $_ }
 $compilerArgs += Join-Path $projectRoot 'PetsPet.cs'
 $compilerArgs += Join-Path $projectRoot 'Integration.cs'
+$compilerArgs += Join-Path $projectRoot 'AssemblyInfo.cs'
 & $compiler @compilerArgs
 if ($LASTEXITCODE -ne 0) { throw '生成程序失败，请查看上方错误。' }
 Write-Host ('已生成：' + (Join-Path $projectRoot 'PetsPet.exe'))

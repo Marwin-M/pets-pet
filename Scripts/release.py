@@ -116,7 +116,7 @@ def publish_release(output, destination, replace=False):
 def write_source_snapshot(destination):
     """Export project files without local collaboration or account data."""
     destination.mkdir()
-    for name in ["Package.swift", "README.md", ".gitignore", "Docs",
+    for name in ["Package.swift", "README.md", ".gitignore", ".github", "Docs",
                  "Sources", "Tests", "Scripts", "Tools", "Resources", "Previews", "Releases", "Windows"]:
         item = ROOT / name
         if item.is_dir():

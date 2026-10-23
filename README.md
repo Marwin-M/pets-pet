@@ -1,20 +1,16 @@
 # Pet's Pet
 
-给 Codex Desktop 宠物加一个额度组件，并在侧栏显示对话用量和项目文件夹大小的 macOS 本地工具。
+给 Codex Desktop 宠物加额度组件的本地工具。macOS 版还支持侧栏对话用量和项目文件夹大小；Windows 版为功能范围较小的预览版。
 
 这是独立开发的非官方工具，与 OpenAI 无隶属关系。
 
-**[下载应用](https://github.com/Marwin-M/pets-pet/releases/latest)** · [1.5.0 更新说明](Releases/1.5.0.md) · [反馈问题](https://github.com/Marwin-M/pets-pet/issues)
+**[下载 macOS 版](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-1.6.0.zip)** · **[下载 Windows x64 预览版](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [1.6.0 更新说明](Releases/1.6.0.md) · [反馈问题](https://github.com/Marwin-M/pets-pet/issues)
 
-当前版本为 **1.5.0**，安装包、匹配源码和校验文件见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases/tag/v1.5.0)。
+当前版本为 **1.6.0**。两个平台的下载包、匹配源码和校验文件见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0)。
 
-1.5.0 新增侧栏底部悬浮模式，默认仍跟随宠物；今日 Token 改为本机自然日统计，主菜单信息文字加深。
+1.6.0 新增可直接下载的 [Windows 适配预览版](Windows/README.md)：独立原生实现，支持额度、跟随宠物和侧栏组件，尚不包含 Token 与目录统计。macOS 版沿用 1.5.0 的功能和外观，本次仅统一版本号并提供对应安装包。
 
-本次同版本修订修复今日 Token 重复统计、多目录项目的链接目录漏算，以及本地安装更新时的旧资源残留；安装失败会尝试恢复旧应用。
-
-Windows 用户可查看 [Windows 适配预览版](Windows/README.md)：独立原生实现，需从源码生成，支持额度、跟随宠物和侧栏组件，尚不包含 Token 与目录统计。现有 Release 下载仍为 macOS 应用。
-
-## 功能
+## macOS 功能
 
 - 宠物旁可选择 **5H＋W 剩余额度**或**重置倒计时＋W 剩余额度**，默认根据官方返回的周期自动适配；手动选择会保存，菜单栏显示具体重置时间。倒计时越接近重置越满，Pro 中央显示淡淡的套餐底纹。
 - 默认跟随宠物，单击宠物可收起或展开；可在「显示设置 → 显示位置」切换为侧栏底部半透明悬浮，底边与左侧头像对齐，列表最后一条聊天可继续上滑至组件上方。两种位置均支持浅色、深色和系统外观。
@@ -42,14 +38,15 @@ Windows 用户可查看 [Windows 适配预览版](Windows/README.md)：独立原
 
 ## 系统要求
 
-- 下载包面向 **Apple Silicon Mac（M 系列芯片）**，不提供 Intel Mac 或 Windows 安装包。
-- 应用声明最低 macOS 13；目前本机验证环境为 macOS 26.5.1，其他系统版本尚未实测。
-- 需要已安装并登录的 Codex Desktop；跟随模式需要在 Codex 中显示宠物，固定模式需要启用侧栏连接。
-- 跟随模式需要为 PetsPet 授予 macOS 辅助功能权限；固定组件、对话用量和项目大小需要通过菜单手动启用本机侧栏连接。
+- macOS 包面向 **Apple Silicon Mac（M 系列芯片）**，不提供 Intel Mac 包。
+- Windows 预览包面向 **Windows 10/11 x64**，需 .NET Framework 4.8；其功能与 macOS 版有差异，详见 [Windows 说明](Windows/README.md)。
+- macOS 应用声明最低 macOS 13；目前本机验证环境为 macOS 26.5.1，其他系统版本尚未实测。
+- 两个平台都需要已安装并登录的 Codex Desktop；跟随模式需要在 Codex 中显示宠物，侧栏模式需要启用对应连接。
+- macOS 跟随模式需要为 PetsPet 授予辅助功能权限；固定组件、对话用量和项目大小需要通过菜单手动启用本机侧栏连接。
 
-## 下载与安装
+## macOS 下载与安装
 
-1. 打开 [最新下载页](https://github.com/Marwin-M/pets-pet/releases/latest)，在 **Assets** 下载 `PetsPet-1.5.0.zip`。仅使用应用时，不需要下载 Source code 或 `-source.zip`。
+1. 打开 [1.6.0 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0)，在 **Assets** 下载 `PetsPet-1.6.0.zip`。仅使用应用时，不需要下载 Source code 或 `-source.zip`。
 2. 解压，将 `PetsPet.app` 放到「应用程序」文件夹。先确定安装位置，再授权和打开；升级前请先自行退出旧版。
 3. 当前包使用本地临时签名，**尚未经过 Apple 公证**。若系统提示无法验证开发者，请先确认下载来源及校验值，再按 [Apple 官方说明](https://support.apple.com/zh-cn/102445)，在「系统设置 → 隐私与安全性」中确认是否仍要打开。不需要关闭系统安全保护。
 4. 首次运行时打开辅助功能设置，在「隐私与安全性 → 辅助功能」中允许 **PetsPet**。升级后如果开关已开但应用仍提示未授权，请移除旧条目并重新添加当前安装位置的应用。
@@ -60,12 +57,20 @@ Windows 用户可查看 [Windows 适配预览版](Windows/README.md)：独立原
 下载页同时提供 `SHA256SUMS.txt`。需要检查下载完整性时，在下载目录运行：
 
 ```sh
-shasum -a 256 PetsPet-1.5.0.zip
+shasum -a 256 PetsPet-1.6.0.zip
 ```
 
 将输出与同一下载页的校验文件中该文件一行比较。校验值用于核对文件完整性，不代表 Apple 公证或全部兼容性验收。
 
-## 启用侧栏显示
+## Windows x64 预览版下载与运行
+
+1. 从 [1.6.0 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0) 下载 `PetsPet-Windows-1.6.0-x64.zip`，解压到个人可写的文件夹，再双击文件夹内的 `PetsPet.exe`。它是免安装便携包，不要直接在 ZIP 中运行，也不要放进 `Program Files`。
+2. 先安装并登录 Codex Desktop，再启动 PetsPet。关闭窗口后程序仍在托盘运行；右键托盘图标可打开菜单或退出。
+3. 此包未签名。若系统出现风险提示，请先确认下载来源和校验值，再决定是否运行；不需要关闭系统安全防护。其他要求、功能差异及侧栏连接步骤见 [Windows 说明](Windows/README.md)。
+
+下载页提供 `SHA256SUMS-Windows.txt`。在 PowerShell 中运行 `Get-FileHash .\PetsPet-Windows-1.6.0-x64.zip -Algorithm SHA256`，与校验文件中的值比较。Windows 包目前只完成构建和规则检查，其他电脑及实际 Codex 窗口中的操作仍需实机验收。
+
+## macOS 侧栏显示
 
 在「显示设置 → 显示位置」选择「侧栏底部」可启用固定组件；「显示对话用量色块」和「显示项目文件夹大小」分别控制其他侧栏显示。位置和开关选择会保存。
 
@@ -73,7 +78,7 @@ shasum -a 256 PetsPet-1.5.0.zip
 
 侧栏连接使用本机 CDP 调试接口（`127.0.0.1:39222`），不应将该端口转发到外部网络。此功能依赖 Codex 内部页面结构；客户端升级后可能需要适配。跟随宠物模式不依赖侧栏连接，固定在侧栏底部的组件需要侧栏连接。
 
-## 数据与隐私
+## macOS 数据与隐私
 
 - 额度来自 Codex 随附的官方 App Server，复用已有登录状态；本工具不读取或保存登录凭证，不发起聊天或模型任务。
 - 今日 Token 读取本机 Codex 统计事件，按系统时区每天 0 点至今的输入＋输出增量汇总。缓存输入已包含在输入中，推理输出已包含在输出中，不重复相加；重复上报和复制历史去重。仅覆盖本机记录，缺少基线或记录时标为“部分”或“暂不可用”，不将未知当作 0。已发布 1.4.1 的官方日报与这一口径不同。
@@ -84,14 +89,15 @@ shasum -a 256 PetsPet-1.5.0.zip
 
 ## 已知限制与验证范围
 
-- 当前发布包是 1.5.0、内部构建 19，使用本地临时签名，尚未做 Apple 公证。
+- macOS 发布包是 1.6.0、内部构建 20，使用本地临时签名，尚未做 Apple 公证；macOS 功能沿用 1.5.0。
 - 本机已完成构建、签名及包校验，并运行核心规则、侧栏读取与连接生命周期检查；测试中的固定样本不进入正式数据读取。
 - 其他人的 Mac、其他 macOS／Codex 版本尚未验收。多屏、透明窗口遮挡、快速拖动、睡眠恢复及真实侧栏连接仍需实机验证；自动化检查不代表这些场景均已通过。
 - 跟随模式依赖辅助功能树，权限不足或宠物不可见时隐藏；固定模式依赖侧栏连接和页面定位，未连接、侧栏收起或无法确认位置时隐藏。
+- Windows 版为独立适配预览，当前不包含今日 Token、对话用量与项目大小；Windows 10、其他 Codex 版本及多屏、遮挡、睡眠等场景仍待实机验收。Windows 的数据与连接说明见 [专页](Windows/README.md)。
 
 发现问题请到 [Issues](https://github.com/Marwin-M/pets-pet/issues) 提供系统版本、芯片、Codex 版本和复现步骤。提交截图或诊断前请检查并移除个人信息，不要上传完整会话数据库或聊天记录。
 
-## 开发
+## macOS 开发
 
 需要 macOS、Apple Command Line Tools 和支持 Swift tools 6.0 的编译器。项目使用系统框架，无第三方运行时依赖。
 

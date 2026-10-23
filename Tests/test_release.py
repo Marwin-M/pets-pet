@@ -74,6 +74,9 @@ class ReleaseArchivesTests(unittest.TestCase):
         (self.root / "AGENTS.md").write_text("private collaboration instructions")
         (self.root / ".env").write_text("PRIVATE_VALUE=not-for-publication")
         (self.root / "README.md").write_text("public documentation")
+        workflows = self.root / ".github/workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "windows.yml").write_text("Windows release workflow")
         docs = self.root / "Docs"
         docs.mkdir()
         (docs / "DEVELOPMENT.md").write_text("public development guide")
@@ -93,6 +96,7 @@ class ReleaseArchivesTests(unittest.TestCase):
         destination = self.root / "export"
         release.write_source_snapshot(destination)
         self.assertEqual((destination / "README.md").read_text(), "public documentation")
+        self.assertEqual((destination / ".github/workflows/windows.yml").read_text(), "Windows release workflow")
         self.assertTrue((destination / "Docs/DEVELOPMENT.md").is_file())
         self.assertFalse((destination / "AGENTS.md").exists())
         self.assertFalse((destination / ".env").exists())

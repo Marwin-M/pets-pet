@@ -1,11 +1,12 @@
 # 版本更新日志
 
-每个正式版本只记录最终结果，保留一份最终安装包；同版本调整合并到该版本日志。当前版本为 **1.5.0**。公开下载见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases)。旧版说明保留作历史记录，未发布到 GitHub 的安装包不提供公开下载链接。
+每个正式版本只记录最终结果，每个平台各保留一份最终安装包；同版本调整合并到该版本日志。当前版本为 **1.6.0**，新增 Windows x64 预览包，macOS 功能沿用 1.5.0。公开下载见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases)。旧版说明保留作历史记录，未发布到 GitHub 的安装包不提供公开下载链接。
 
 各版更新说明已附对应版本图片；原始截图与原生预览分别标注，早期原图保留历史读数。图片按版本独立归档，不随当前外观更新而覆盖，来源与校验值见[图片归档说明](Images/README.md)。
 
 | 版本 | 日期 | 主要变化 | 最终安装包 |
 | --- | --- | --- | --- |
+| [1.6.0](1.6.0.md) | 2026-10-23 | 新增 Windows x64 适配预览与直接下载包；macOS 功能沿用 1.5.0 | [macOS](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-1.6.0.zip) · [Windows x64](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip) |
 | [1.5.0](1.5.0.md) | 2026-10-18 | 可切换宠物跟随／侧栏半透明悬浮、本机自然日 Token、菜单文字加深；修复重复统计、链接目录漏算与安装回滚 | [下载](https://github.com/Marwin-M/pets-pet/releases/download/v1.5.0/PetsPet-1.5.0.zip) |
 | [1.4.1](1.4.1.md) | 2026-10-17 | 今日 Token 官方每日统计、菜单分组与状态更新 | [下载](https://github.com/Marwin-M/pets-pet/releases/download/v1.4.1/PetsPet-1.4.1.zip) |
 | [1.4.0](1.4.0.md) | 2026-10-17 | 可配置自动／5H＋W／倒计时＋W，套餐识别与 PRO 底纹，兼容未来额度周期变化 | [下载](https://github.com/Marwin-M/pets-pet/releases/download/v1.4.0/PetsPet-1.4.0.zip) |
@@ -19,7 +20,7 @@
 
 ## 留档规则
 
-- 统一保存到 `dist/releases/<版本号>/`，安装包命名为 `PetsPet-<版本号>.zip`，不按构建号分多个发布目录。
+- 统一保存到 `dist/releases/<版本号>/`，macOS 安装包命名为 `PetsPet-<版本号>.zip`，Windows x64 包命名为 `PetsPet-Windows-<版本号>-x64.zip`，不按构建号分多个发布目录。
 - 同一版本的最终修订在完整打包、校验通过后替换该版本旧包；其他版本继续保留。
 - 每版附更新日志、预览（如有）、清单和 SHA-256 校验文件。有匹配源码时附 `PetsPet-<版本号>-source.zip`，缺失时明确说明。
 - 源码里的内部构建号仅用于应用识别和校验，不作为独立发布版本展示。
