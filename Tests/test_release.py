@@ -80,6 +80,16 @@ class ReleaseArchivesTests(unittest.TestCase):
         cache = docs / "__pycache__"
         cache.mkdir()
         (cache / "private.pyc").write_bytes(b"cache")
+        windows = self.root / "Windows"
+        windows.mkdir()
+        (windows / "PetsPet.cs").write_text("Windows source")
+        (windows / "PetsPet.exe").write_bytes(b"local build")
+        data = windows / "data"
+        data.mkdir()
+        (data / "settings.json").write_text("local settings")
+        screenshots = windows / "验收截图"
+        screenshots.mkdir()
+        (screenshots / "capture.png").write_bytes(b"local screenshot")
         destination = self.root / "export"
         release.write_source_snapshot(destination)
         self.assertEqual((destination / "README.md").read_text(), "public documentation")
@@ -88,6 +98,10 @@ class ReleaseArchivesTests(unittest.TestCase):
         self.assertFalse((destination / ".env").exists())
         self.assertFalse((destination / "dist").exists())
         self.assertFalse((destination / "Docs/__pycache__").exists())
+        self.assertEqual((destination / "Windows/PetsPet.cs").read_text(), "Windows source")
+        self.assertFalse((destination / "Windows/PetsPet.exe").exists())
+        self.assertFalse((destination / "Windows/data").exists())
+        self.assertFalse((destination / "Windows/验收截图").exists())
 
     def test_revision_cannot_reuse_or_decrease_build(self):
         for build in [3, 4]:

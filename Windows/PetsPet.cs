@@ -719,7 +719,7 @@ namespace PetsPetWindows
         DetailForm details;
         QuotaSnapshot snapshot;
         string error;
-        bool loading, closing, hidden, dragging, moved, petCollapsed, suspended, enablingSidebar;
+        bool loading, closing, hidden, dragging, moved, petCollapsed, suspended, enablingSidebar, followPlacementAvailable;
         CancellationTokenSource sidebarCancel;
         string sidebarProgress;
         int refreshGeneration;
@@ -833,7 +833,7 @@ namespace PetsPetWindows
         }
         void SetPosition(string position)
         {
-            settings.Position = position; settings.Follow = position == "followPet"; petCollapsed = false; hidden = false;
+            settings.Position = position; settings.Follow = position == "followPet"; petCollapsed = false; hidden = false; followPlacementAvailable = false;
             showItem.Text = "隐藏组件"; tracker.Rescan(); SaveSettings(); lastSidebar = DateTime.MinValue;
             ApplyVisibility(); PaintSurface(); UpdateDetails();
         }
@@ -843,9 +843,11 @@ namespace PetsPetWindows
             tracker.Enabled = follow;
             petMouse.Enable(follow);
             MouseThrough(settings.Follow && settings.Passthrough);
-            bool visible = !hidden && !suspended && settings.Position != "sidebarBottom" && (!settings.Follow || tracker.Current.Found && !petCollapsed);
+            bool visible = !hidden && !suspended && settings.Position != "sidebarBottom" && (!settings.Follow || FollowVisible(tracker.Current.Found, followPlacementAvailable, petCollapsed));
             if (Visible != visible) { if (visible) Show(); else Hide(); }
         }
+        internal static bool FollowVisible(bool petFound, bool placementAvailable, bool collapsed)
+        { return petFound && placementAvailable && !collapsed; }
         void PowerChanged(object sender, PowerModeChangedEventArgs e)
         {
             if (closing || !IsHandleCreated) return;
@@ -961,10 +963,15 @@ namespace PetsPetWindows
             if (settings.Follow && anchor.Found && !dragging)
             {
                 Rectangle? target = Placement.Follow(anchor.Pet, anchor.Occupied, Size, Screen.FromRectangle(anchor.Pet).WorkingArea);
+                followPlacementAvailable = target.HasValue;
                 connection = target.HasValue ? (petMouse.Available ? "已跟随宠物 · " + (settings.Passthrough ? "鼠标穿透；设置请点托盘" : "双环可右键设置、双击详情") : "已跟随宠物 · 点击监听不可用，请重开本工具") : "宠物附近空间不足";
                 if (target.HasValue && Location != target.Value.Location) Location = target.Value.Location;
             }
-            else connection = settings.Follow ? "未发现宠物 · 暂时隐藏组件" : settings.Position == "sidebarBottom" ? sidebar.Status : "独立浮窗 · 可拖动，右键设置";
+            else
+            {
+                followPlacementAvailable = false;
+                connection = settings.Follow ? "未发现宠物 · 暂时隐藏组件" : settings.Position == "sidebarBottom" ? sidebar.Status : "独立浮窗 · 可拖动，右键设置";
+            }
             ApplyVisibility();
             if ((now-lastSidebar).TotalSeconds >= 2) {
                 lastSidebar = now;
@@ -1278,6 +1285,7 @@ namespace PetsPetWindows
             Rectangle clamped = Placement.Clamp(new Rectangle(-3000, 1100, Art.Width, Art.Height), negativeMonitor);
             Check(negativeMonitor.Contains(clamped), "negative coordinate monitor");
             Check(!Placement.Follow(pet, pet, new Size(Art.Width, Art.Height), new Rectangle(0, 0, 100, 40)).HasValue, "small screen");
+            Check(!Companion.FollowVisible(true, false, false) && Companion.FollowVisible(true, true, false), "follow hides without safe placement and recovers when available");
             Check(Time.Duration(60) == "1分钟", "countdown minute");
             Check(Time.Duration(86400) == "1天0小时", "countdown day");
             Check(Time.Duration(null) == "等待更新", "unknown countdown");

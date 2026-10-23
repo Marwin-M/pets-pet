@@ -117,11 +117,14 @@ def write_source_snapshot(destination):
     """Export project files without local collaboration or account data."""
     destination.mkdir()
     for name in ["Package.swift", "README.md", ".gitignore", "Docs",
-                 "Sources", "Tests", "Scripts", "Tools", "Resources", "Previews", "Releases"]:
+                 "Sources", "Tests", "Scripts", "Tools", "Resources", "Previews", "Releases", "Windows"]:
         item = ROOT / name
         if item.is_dir():
+            ignored = ["__pycache__", ".DS_Store"]
+            if name == "Windows":
+                ignored += ["PetsPet.exe", "data", "验收截图"]
             shutil.copytree(item, destination / name,
-                            ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"))
+                            ignore=shutil.ignore_patterns(*ignored))
         elif item.is_file():
             shutil.copy2(item, destination / name)
 

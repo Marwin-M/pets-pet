@@ -83,7 +83,7 @@ if ($renderProcess.ExitCode -ne 0) { throw '样本生成失败' }
 Get-Content -LiteralPath .\Windows\data\render-checks.json
 ```
 
-`--self-test` 目前有 69 项断言，覆盖额度解析、未知／过期、模式选择、单击／拖动区分、摆放边界、图标、鼠标穿透、本机地址限制、手动退出连接流程、取消与竖向尺寸。`--render-checks` 生成 66 张样本到 `Windows/验收截图/视觉样本/`，需人工查看图形和文字。
+`--self-test` 目前有 70 项断言，覆盖额度解析、未知／过期、模式选择、单击／拖动区分、摆放边界、无可用位置时隐藏及恢复、图标、鼠标穿透、本机地址限制、手动退出连接流程、取消与竖向尺寸。`--render-checks` 生成 66 张样本到 `Windows/验收截图/视觉样本/`，需人工查看图形和文字。
 
 如果已安装 Node.js 18 或更新版本（仅开发检查需要），生成样本后执行：
 
