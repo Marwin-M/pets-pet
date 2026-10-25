@@ -4,20 +4,22 @@
 
 这是独立开发的非官方工具，与 OpenAI 无隶属关系。
 
-**[下载 macOS 版](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-1.6.0.zip)** · **[下载 Windows x64 预览版](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [1.6.0 更新说明](Releases/1.6.0.md) · [反馈问题](https://github.com/Marwin-M/pets-pet/issues)
+**[下载 macOS 版](https://github.com/Marwin-M/pets-pet/releases/download/v1.7.0/PetsPet-1.7.0.zip)** · **[下载 Windows x64 预览版](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [1.7.0 更新说明](Releases/1.7.0.md) · [反馈问题](https://github.com/Marwin-M/pets-pet/issues)
 
-当前版本为 **1.6.0**。两个平台的下载包、匹配源码和校验文件见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0)。
+macOS 当前版本为 **1.7.0**，安装包、匹配源码和校验文件见 [1.7.0 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.0)。Windows 预览版继续使用 **1.6.0**，从 [Windows 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0) 获取。
 
-1.6.0 新增可直接下载的 [Windows 适配预览版](Windows/README.md)：独立原生实现，支持额度、跟随宠物和侧栏组件，尚不包含 Token 与目录统计。macOS 版沿用 1.5.0 的功能和外观，本次仅统一版本号并提供对应安装包。
+1.7.0 新增自定义启动动画、系统毛玻璃背景、手动启动和可选的跟随退出。Windows [适配预览版](Windows/README.md) 保持原有范围，支持额度、跟随宠物和侧栏组件，尚不包含本次启动功能、Token 与目录统计。
 
 ## macOS 功能
 
 - 宠物旁可选择 **5H＋W 剩余额度**或**重置倒计时＋W 剩余额度**，默认根据官方返回的周期自动适配；手动选择会保存，菜单栏显示具体重置时间。倒计时越接近重置越满，Pro 中央显示淡淡的套餐底纹。
 - 默认跟随宠物，单击宠物可收起或展开；可在「显示设置 → 显示位置」切换为侧栏底部半透明悬浮，底边与左侧头像对齐，列表最后一条聊天可继续上滑至组件上方。两种位置均支持浅色、深色和系统外观。
-- 菜单栏提供今日 Token；显示、连接、诊断操作归入三个子菜单。缺失数据不以 0 代替。
+- 菜单栏提供今日 Token；显示、侧栏连接、启动设置、工具与诊断归入四个子菜单。缺失数据不以 0 代替。
 - 侧栏用黑白灰色块表示对话累计 Token 用量，悬浮查看输入、缓存命中和输出明细。
 - 项目名称后显示本地目录内容大小，按 Finder「大小」口径统计。
 - 额度组件、对话色块和项目大小可分别控制。读取失败或数据缺失会显示未知状态，不以零值代替。
+- 打开 Pet’s Pet 可自动启动 Codex，支持自定义 HTML、MOV、MP4、PNG 开场；已运行时跳过动画。内置动画适配宽屏，客户端就绪后与毛玻璃背景一起渐隐。
+- 可手动带本机连接参数启动客户端；「ChatGPT 退出时退出 Pet’s Pet」默认开启，可关闭并保存选择。界面中的 ChatGPT 启动目标仍为 Codex 客户端。
 
 | 浅色 | 深色 |
 | --- | --- |
@@ -34,7 +36,7 @@
 
 <img src="Previews/Assets/menu.png" width="340" alt="1.5.0 菜单布局示意：今日 Token 位于重置卡前，设置、连接、诊断归入子菜单">
 
-上图为菜单布局示意，采用与应用相同的数据行格式，Token 为演示样本，不代表真实账号用量。
+上图为原有额度菜单的数据布局示意，Token 为演示样本，不代表真实账号用量；1.7.0 另增加「启动设置」子菜单，功能和动画示意见下方。
 
 ## 系统要求
 
@@ -46,7 +48,7 @@
 
 ## macOS 下载与安装
 
-1. 打开 [1.6.0 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0)，在 **Assets** 下载 `PetsPet-1.6.0.zip`。仅使用应用时，不需要下载 Source code 或 `-source.zip`。
+1. 打开 [1.7.0 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.0)，在 **Assets** 下载 `PetsPet-1.7.0.zip`。仅使用应用时，不需要下载 Source code 或 `-source.zip`。
 2. 解压，将 `PetsPet.app` 放到「应用程序」文件夹。先确定安装位置，再授权和打开；升级前请先自行退出旧版。
 3. 当前包使用本地临时签名，**尚未经过 Apple 公证**。若系统提示无法验证开发者，请先确认下载来源及校验值，再按 [Apple 官方说明](https://support.apple.com/zh-cn/102445)，在「系统设置 → 隐私与安全性」中确认是否仍要打开。不需要关闭系统安全保护。
 4. 首次运行时打开辅助功能设置，在「隐私与安全性 → 辅助功能」中允许 **PetsPet**。升级后如果开关已开但应用仍提示未授权，请移除旧条目并重新添加当前安装位置的应用。
@@ -57,7 +59,7 @@
 下载页同时提供 `SHA256SUMS.txt`。需要检查下载完整性时，在下载目录运行：
 
 ```sh
-shasum -a 256 PetsPet-1.6.0.zip
+shasum -a 256 PetsPet-1.7.0.zip
 ```
 
 将输出与同一下载页的校验文件中该文件一行比较。校验值用于核对文件完整性，不代表 Apple 公证或全部兼容性验收。
@@ -89,7 +91,7 @@ shasum -a 256 PetsPet-1.6.0.zip
 
 ## 已知限制与验证范围
 
-- macOS 发布包是 1.6.0、内部构建 20，使用本地临时签名，尚未做 Apple 公证；macOS 功能沿用 1.5.0。
+- macOS 发布包是 1.7.0、内部构建 26，使用本地临时签名，尚未做 Apple 公证。
 - 本机已完成构建、签名及包校验，并运行核心规则、侧栏读取与连接生命周期检查；测试中的固定样本不进入正式数据读取。
 - 其他人的 Mac、其他 macOS／Codex 版本尚未验收。多屏、透明窗口遮挡、快速拖动、睡眠恢复及真实侧栏连接仍需实机验证；自动化检查不代表这些场景均已通过。
 - 跟随模式依赖辅助功能树，权限不足或宠物不可见时隐藏；固定模式依赖侧栏连接和页面定位，未连接、侧栏收起或无法确认位置时隐藏。
@@ -113,6 +115,18 @@ swift build -c release --product PetsPet
 ```
 
 `Scripts/build.sh` 会生成应用包并默认覆盖 `dist/PetsPet.app`，只在需要打包时执行。发布、安装和重开是独立步骤；版本打包流程见 [开发与历史验证记录](Docs/DEVELOPMENT.md)。
+
+macOS 1.7.0 新增启动动画和自动打开 Codex；行为、素材规格及待实机验收项目见 [启动动画说明](Docs/STARTUP.md)和 [1.7.0 更新说明](Releases/1.7.0.md)。
+
+1.7.0（构建 26）：内置 10 秒圆形光圈动画，宽屏两侧保留动效；背景使用系统毛玻璃，客户端就绪后与动画一起用 0.8 秒渐隐。预览支持手动结束和单次播放；菜单统一使用「默认动画」。新增「启动 ChatGPT」手动带参启动（目标仍为 Codex），客户端已运行时禁用；跟随退出开关开启时，客户端真正退出会一起退出 Pet’s Pet，主动重连不会误退。安装包与匹配源码见本版下载页。
+
+构建 25 修复自动退出卡住、菜单残留且手动启动项被禁用的问题：退出交回原生事件循环处理，清理最长等待 2 秒。正常清理、清理不响应和客户端退出联动均通过真实独立 AppKit 进程回归；实机验收步骤见[启动动画说明](Docs/STARTUP.md)。
+
+「ChatGPT 退出时退出 Pet’s Pet」开关位于启动设置，默认开启并保存选择；关闭后客户端退出只隐藏组件，Pet’s Pet 留在菜单栏。
+
+<img src="Releases/Images/1.7.0/startup-html.png" width="600" alt="1.7.0 默认 HTML 在原生网页组件中的渲染样式，实际尺寸跟随上次 Codex 主窗口，不是实际冷启动截图">
+
+上图为默认 HTML 前景在原生网页组件中的渲染样式，不包含窗口背后的系统毛玻璃，也不是实际 Codex 冷启动截图。HTML 保留作者的自适应布局；视频和 PNG 按窗口等比铺满、居中裁切。
 
 | 目录 | 用途 |
 | --- | --- |

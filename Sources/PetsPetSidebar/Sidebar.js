@@ -1,7 +1,7 @@
 // Pet's Pet sidebar renderer. Local records are supplied by the native controller.
 (function setupPetsPetSidebar(settings) {
   const key = '__petsPetSidebar';
-  const version = 8;
+  const version = 9;
   const previous = window[key];
   if (previous?.version === version) {
     previous.configure(settings);
@@ -359,7 +359,14 @@
         projects = [...document.querySelectorAll(projectSelector)].filter(localProject)
           .map(row => ({ id: projectId(row), roots: map.get(projectId(row)) || [] })).filter(project => project.id).slice(0, 200);
       }
-      return { ids, projects, quotaMounted: quotaSlot.isConnected, threadRows: document.querySelectorAll(threadSelector).length,
+      const visible = element => element.getClientRects().length && !element.closest('[hidden],[inert],[aria-hidden="true"]') &&
+        getComputedStyle(element).visibility !== 'hidden' && getComputedStyle(element).display !== 'none';
+      const navigation = [...document.querySelectorAll('[data-sidebar-navigation-root],[data-app-navigation-rail]')].some(visible);
+      const editor = [...document.querySelectorAll('textarea,[contenteditable="true"]')].some(element => visible(element) &&
+        !element.disabled && element.getAttribute('aria-disabled') !== 'true' && !element.readOnly);
+      const loading = [...document.querySelectorAll('body[aria-busy="true"],main[aria-busy="true"],[role="main"][aria-busy="true"]')].some(visible);
+      const clientReady = document.readyState === 'complete' && navigation && editor && !loading;
+      return { ids, projects, clientReady, quotaMounted: quotaSlot.isConnected, threadRows: document.querySelectorAll(threadSelector).length,
         projectRows: document.querySelectorAll(projectSelector).length };
     },
     update(next) {

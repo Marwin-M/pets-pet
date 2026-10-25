@@ -3,6 +3,9 @@ import PetsPetSidebar
 
 /// Owns Pet's Pet sidebar elements, independently of pet detection.
 @MainActor final class SidebarController {
+    static let startupConnectionKey = "sidebarStartupConnectionAllowed"
+    private static let startupConsentAskedKey = "sidebarStartupConsentAsked"
+    static let localConnectionArguments = ["--remote-debugging-address=127.0.0.1", "--remote-debugging-port=39222"]
     var onChange: (() -> Void)?
     private(set) var tokensEnabled: Bool
     private(set) var projectsEnabled: Bool
@@ -14,7 +17,9 @@ import PetsPetSidebar
     private(set) var needsConnection = false { didSet { if oldValue != needsConnection { onChange?() } } }
     private(set) var tokenStatus = "" { didSet { if oldValue != tokenStatus { onChange?() } } }
     private(set) var connected = false { didSet { if oldValue != connected { onChange?() } } }
+    private(set) var clientReady = false
     private(set) var opening = false { didSet { onChange?() } }
+    private(set) var restartingClientProcessID: pid_t?
     private let preferences: UserDefaults
     private let discovery: SidebarDiscovery
     private let refreshInterval: UInt64
@@ -27,6 +32,42 @@ import PetsPetSidebar
     private var openingTask: Task<Void, Never>?
     private var revision = 0
     private var paused = false
+    private var startupConnectionDeadline: Date?
+    var startupConnectionAllowed: Bool { preferences.bool(forKey: Self.startupConnectionKey) }
+    var startupArguments: [String] { startupConnectionAllowed && hasEnabledFeatures ? Self.localConnectionArguments : [] }
+
+    /// Consent applies to future cold launches only. Never restart an existing Codex here.
+    func authorizeStartupIfNeeded() {
+        guard hasEnabledFeatures, !preferences.bool(forKey: Self.startupConsentAskedKey) else { return }
+        requestStartupConsent()
+    }
+
+    func toggleStartupConnection() {
+        if startupConnectionAllowed { preferences.set(false, forKey: Self.startupConnectionKey) }
+        else { requestStartupConsent() }
+    }
+
+    private func requestStartupConsent() {
+        let alert = NSAlert()
+        alert.messageText = "启动时恢复侧栏连接？"
+        alert.informativeText = "允许后，Pet’s Pet 在打开尚未运行的 Codex 时，会启用仅限本机的页面调试连接（127.0.0.1:39222），用于恢复侧栏组件、对话用量和项目大小。选择会保存，可在启动设置中关闭。不会重启已经运行的 Codex。"
+        alert.addButton(withTitle: "允许并记住")
+        alert.addButton(withTitle: "仅打开 Codex")
+        NSApp.activate(ignoringOtherApps: true)
+        preferences.set(alert.runModal() == .alertFirstButtonReturn, forKey: Self.startupConnectionKey)
+        preferences.set(true, forKey: Self.startupConsentAskedKey)
+    }
+
+    func prepareForClientLaunch(connect: Bool = false) {
+        guard !paused, connect || !startupArguments.isEmpty else { return }
+        clientReady = false
+        startupConnectionDeadline = Date().addingTimeInterval(30)
+        restart(resetConnections: true)
+    }
+
+    func finishClientLaunch(success: Bool) {
+        if !success { startupConnectionDeadline = nil; restart(resetConnections: true) }
+    }
 
     init(preferences: UserDefaults = .standard, discovery: SidebarDiscovery = SidebarDiscovery(),
          refreshInterval: UInt64 = 5_000_000_000) {
@@ -67,6 +108,7 @@ import PetsPetSidebar
     private func restart(resetConnections: Bool = false, connectionDeadline: Date? = nil) {
         revision += 1
         let current = revision, previous = task
+        let readinessDeadline = connectionDeadline ?? startupConnectionDeadline
         previous?.cancel()
         if !projectsEnabled || paused { sizes.cancel() }
         task = Task { [weak self] in
@@ -84,18 +126,22 @@ import PetsPetSidebar
                 return
             }
             guard self.script != nil else { self.status = "侧栏：资源缺失，请重新安装 Pet's Pet"; return }
-            var deadline = connectionDeadline
+            var deadline = readinessDeadline
             repeat {
                 await self.tick()
                 guard !Task.isCancelled, self.revision == current else { break }
                 if self.connected {
+                    if !self.clientReady, let deadline, Date() < deadline {
+                        do { try await Task.sleep(nanoseconds: 250_000_000) } catch { break }
+                        continue
+                    }
+                    self.startupConnectionDeadline = nil
                     // Only refresh live data while connected. A transport loss
                     // stops the loop instead of polling a closed port forever.
                     deadline = nil
                     do { try await Task.sleep(nanoseconds: self.refreshInterval) } catch { break }
                 } else if let deadline, Date() < deadline {
-                    // A bounded readiness wait belongs only to a user-confirmed
-                    // launch; it is not an automatic reconnect service.
+                    // Only an authorized launch owns this bounded readiness wait.
                     do { try await Task.sleep(nanoseconds: 250_000_000) } catch { break }
                 } else { break }
             } while !Task.isCancelled && self.revision == current
@@ -126,11 +172,13 @@ import PetsPetSidebar
                 }
             }
             guard !requests.isEmpty else {
+                clientReady = false
                 connected = false
                 needsConnection = true
                 status = opening ? "侧栏：正在等待 Codex 连接就绪…" : targets.isEmpty ? "侧栏：未找到主窗口，可手动启用连接" : "侧栏：连接失败，请手动启用连接"
                 tokenStatus = ""; sizes.cancel(); return
             }
+            clientReady = requests.contains { $0.1["clientReady"] as? Bool == true }
             try Task.checkCancellation()
             let ids = Array(Set(requests.flatMap { $0.1["ids"] as? [String] ?? [] }))
             if quotaEnabled {
@@ -180,6 +228,7 @@ import PetsPetSidebar
         } catch {
             if Task.isCancelled { return }
             connected = false
+            clientReady = false
             needsConnection = true
             status = opening ? "侧栏：正在等待 Codex 连接就绪…" : "侧栏：未连接，请手动启用连接（开关选择已保存）"
             tokenStatus = ""
@@ -193,7 +242,7 @@ import PetsPetSidebar
     private func cleanup() async {
         sizes.cancel()
         let connections = Array(sessions.values)
-        sessions.removeAll(); connected = false
+        sessions.removeAll(); connected = false; clientReady = false
         await withTaskGroup(of: Void.self) { group in
             for connection in connections {
                 group.addTask {
@@ -217,6 +266,7 @@ import PetsPetSidebar
     /// Lifecycle events permit a single probe, never a recurring disconnected poll.
     func clientDidChange() {
         guard !opening else { return }
+        clientReady = false
         restart(resetConnections: true)
     }
 
@@ -237,12 +287,15 @@ import PetsPetSidebar
         alert.addButton(withTitle: "取消")
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
+        preferences.set(true, forKey: Self.startupConnectionKey)
+        preferences.set(true, forKey: Self.startupConsentAskedKey)
         task?.cancel()
         opening = true; status = "侧栏：正在启用连接…"
         openingTask = Task { [weak self] in
             guard let self else { return }
             var waitingForEndpoint = false
             defer {
+                self.restartingClientProcessID = nil
                 self.opening = false
                 if waitingForEndpoint && !self.connected && !self.paused && !Task.isCancelled {
                     self.status = "侧栏：连接未就绪，请手动重试"
@@ -251,6 +304,7 @@ import PetsPetSidebar
             do {
                 try Task.checkCancellation()
                 if let running, !running.isTerminated {
+                    self.restartingClientProcessID = running.processIdentifier
                     guard running.terminate() else { self.status = "侧栏：Codex 未退出，已取消连接操作"; return }
                     let deadline = Date().addingTimeInterval(20)
                     while !running.isTerminated && Date() < deadline {
@@ -263,7 +317,7 @@ import PetsPetSidebar
                 // Reuse an instance the user already reopened; never create a competitor.
                 if NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex").isEmpty {
                     let config = NSWorkspace.OpenConfiguration()
-                    config.arguments = ["--remote-debugging-address=127.0.0.1", "--remote-debugging-port=39222"]
+                    config.arguments = Self.localConnectionArguments
                     config.activates = true
                     _ = try await NSWorkspace.shared.openApplication(at: appURL, configuration: config)
                 }

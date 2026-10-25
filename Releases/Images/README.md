@@ -1,6 +1,6 @@
 # 版本图片归档
 
-整理日期：2026-10-18。用于各版本更新说明及 GitHub Release，图片按版本独立保存，不引用会被新版本覆盖的 `Previews/Assets/current.png`。
+更新日期：2026-10-25。用于各版本更新说明及 GitHub Release，图片按版本独立保存，不引用会被新版本覆盖的 `Previews/Assets/current.png`。
 
 本目录保留原文件字节，没有重新绘制历史界面，也没有运行或重装旧应用。1.0.0 为历史实机截图；其余主要为原生组件评审图、程序绘制的菜单／位置示意及评审页面截图，具体性质写在对应版本说明中。
 
@@ -69,3 +69,9 @@
 ### 1.5.0
 
 图片保留本版构建 18 时的原始归档字节，构建 19 仅修复逻辑、没有界面变化，因此原样复用；`sources.json` 保留提取时的来源包校验值。浅色侧栏位置图来自原构建的 `preview.png`；深色位置图来自已公开的 [1.5.0 文档提交 cce2d40](https://github.com/Marwin-M/pets-pet/commit/cce2d40bce8ccab54a219e6d41f1bb154a3be51b) 中的 `Previews/Assets/position-layout-dark.png`。额度与浅深菜单来自原构建的匹配源码包。
+
+<a id="v170"></a>
+
+### 1.7.0
+
+`startup-html.png` 与 `startup-html-ultrawide.png` 为真实 WebKit 对内置十秒动画的普通／宽屏渲染，扩散光圈保持圆形。只展示 HTML 前景，不包含窗口背后的系统毛玻璃，也不是客户端冷启动截图。`startup-loading.png` 保留开发期间的原生 loading 样式参考；额度模式继续使用已核对的 66／88 示例，不改真实读取。

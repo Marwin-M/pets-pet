@@ -1,11 +1,12 @@
 # 版本更新日志
 
-每个正式版本只记录最终结果，每个平台各保留一份最终安装包；同版本调整合并到该版本日志。当前版本为 **1.6.0**，新增 Windows x64 预览包，macOS 功能沿用 1.5.0。公开下载见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases)。旧版说明保留作历史记录，未发布到 GitHub 的安装包不提供公开下载链接。
+每个正式版本只记录最终结果，每个平台各保留一份最终安装包；同版本调整合并到该版本日志。当前 macOS 公开版本为 **1.7.0**，新增启动动画与退出控制；Windows 预览仍为 **1.6.0**。公开下载见 [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases)。旧版说明保留作历史记录，未发布到 GitHub 的安装包不提供公开下载链接。
 
 各版更新说明已附对应版本图片；原始截图与原生预览分别标注，早期原图保留历史读数。图片按版本独立归档，不随当前外观更新而覆盖，来源与校验值见[图片归档说明](Images/README.md)。
 
 | 版本 | 日期 | 主要变化 | 最终安装包 |
 | --- | --- | --- | --- |
+| [1.7.0](1.7.0.md) | 2026-10-25 | macOS 自动／手动带参启动、10 秒圆形光圈动画与毛玻璃、0.8 秒渐隐、预览手动结束、可选跟随客户端退出；修复退出阻塞与菜单残留 | [macOS 下载](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.0)（构建 26）；Windows 仍为 1.6.0 |
 | [1.6.0](1.6.0.md) | 2026-10-23 | 新增 Windows x64 适配预览与直接下载包；macOS 功能沿用 1.5.0 | [macOS](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-1.6.0.zip) · [Windows x64](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip) |
 | [1.5.0](1.5.0.md) | 2026-10-18 | 可切换宠物跟随／侧栏半透明悬浮、本机自然日 Token、菜单文字加深；修复重复统计、链接目录漏算与安装回滚 | [下载](https://github.com/Marwin-M/pets-pet/releases/download/v1.5.0/PetsPet-1.5.0.zip) |
 | [1.4.1](1.4.1.md) | 2026-10-17 | 今日 Token 官方每日统计、菜单分组与状态更新 | [下载](https://github.com/Marwin-M/pets-pet/releases/download/v1.4.1/PetsPet-1.4.1.zip) |

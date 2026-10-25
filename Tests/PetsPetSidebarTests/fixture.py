@@ -87,6 +87,7 @@ class Handler(socketserver.StreamRequestHandler):
                     if expression.startswith("// Pet's Pet sidebar renderer."):
                         options = json.loads(expression.rsplit(" (", 1)[1][:-1])
                         value["quotaMounted"] = options.get("quota") is not None
+                        value["clientReady"] = not port_path.with_suffix('.unready').exists()
                         port_path.with_suffix('.options').write_text(json.dumps({
                             "tokens": options.get("tokens"), "projects": options.get("projects"),
                             "quota": options.get("quota") is not None,

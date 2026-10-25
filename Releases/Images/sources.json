@@ -235,5 +235,26 @@
     "source": "git:cce2d40bce8ccab54a219e6d41f1bb154a3be51b:Previews/Assets/position-layout-dark.png",
     "kind": "published 1.5.0 native layout illustration",
     "sha256": "c829fe827055d0ab2a61139c3328ce9976c0c8162dc505d2c166514c362ebeef"
+  },
+  {
+    "version": "1.7.0",
+    "file": "1.7.0/startup-html-ultrawide.png",
+    "source": "native WebKit checks of Sources/PetsPet/DefaultStartup.html",
+    "kind": "native HTML foreground render; no background blur or live-client screenshot",
+    "sha256": "6f950f139bd48810e2ac1f7014c1af5010cb24de94cbf315919df58d6a3798dc"
+  },
+  {
+    "version": "1.7.0",
+    "file": "1.7.0/startup-html.png",
+    "source": "native WebKit checks of Sources/PetsPet/DefaultStartup.html",
+    "kind": "native HTML foreground render; no background blur or live-client screenshot",
+    "sha256": "d93aa120befe453c69275312827c60459ade7eff9309f0cd7e197c6eb860e390"
+  },
+  {
+    "version": "1.7.0",
+    "file": "1.7.0/startup-loading.png",
+    "source": "native loading review during 1.7.0 development",
+    "kind": "historical native loading review sample",
+    "sha256": "9bdf181c75848b11d00577df31d4927d7469ed0b4b85b1bc883af6b250ec67ad"
   }
 ]

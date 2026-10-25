@@ -38,6 +38,12 @@ private func check(_ value: @autoclosure () -> Bool, _ message: String) throws {
         defer { preferences.removePersistentDomain(forName: suite) }
         let controller = SidebarController(preferences: preferences, discovery: SidebarDiscovery(port: port), refreshInterval: 40_000_000)
 
+        try check(controller.startupArguments.isEmpty, "startup never enables page debugging without saved consent")
+        preferences.set(true, forKey: SidebarController.startupConnectionKey)
+        try check(controller.startupArguments == SidebarController.localConnectionArguments, "saved consent enables loopback-only launch arguments")
+        controller.toggleStartupConnection()
+        try check(!controller.startupConnectionAllowed && controller.startupArguments.isEmpty, "revoking startup consent clears arguments without opening Codex")
+
         controller.start()
         try await waitUntil("startup failure is reported") { controller.needsConnection }
         try check(!controller.connected && !controller.opening, "a failed probe never launches a restart workflow")
@@ -79,6 +85,9 @@ private func check(_ value: @autoclosure () -> Bool, _ message: String) throws {
         try check(requestCount() == disabledAt, "disabled features perform no discovery")
         try check(!preferences.bool(forKey: "sidebarTokensEnabled") && !preferences.bool(forKey: "sidebarProjectsEnabled"), "feature choices remain saved")
 
+        preferences.set(true, forKey: SidebarController.startupConnectionKey)
+        try check(controller.startupArguments.isEmpty, "disabled sidebar features do not request a debugging endpoint despite saved consent")
+
         controller.quotaProvider = { ["light": "data:image/png;base64,aA==", "dark": "data:image/png;base64,aA==", "label": "quota fixture"] }
         controller.setQuotaEnabled(true)
         try await waitUntil("fixed quota connects with both existing sidebar features off") { controller.connected && controller.quotaStatus.contains("固定在侧栏底部") }
@@ -99,12 +108,51 @@ private func check(_ value: @autoclosure () -> Bool, _ message: String) throws {
         try await waitUntil("leaving fixed mode cleans up quota-only connection") { controller.status == "侧栏：Pet’s Pet 显示已关闭" }
         try FileManager.default.removeItem(at: offline)
 
+        // Simulate an authorized cold launch: the endpoint can appear after the process notification.
+        try Data().write(to: offline)
+        controller.setTokens(true)
+        try await waitUntil("initial cold-start probe fails before endpoint exists") { controller.needsConnection }
+        controller.prepareForClientLaunch()
+        controller.clientDidChange()
+        let beforeReady = requestCount()
+        try await waitUntil("authorized startup owns bounded readiness retries") { requestCount() >= beforeReady + 2 }
+        let unready = portFile.appendingPathExtension("unready")
+        try Data().write(to: unready)
+        try FileManager.default.removeItem(at: offline)
+        try await waitUntil("delayed endpoint restores saved sidebar features") { controller.connected }
+        try check(!controller.clientReady, "transport connection alone does not claim a loaded main interface")
+        try FileManager.default.removeItem(at: unready)
+        try await waitUntil("client readiness follows delayed interface hydration") { controller.clientReady }
+        controller.finishClientLaunch(success: true)
+        try Data().write(to: offline)
+        try await waitUntil("startup connection still stops after later transport loss") { !controller.connected }
+        let afterStartupLoss = requestCount()
+        try await Task.sleep(nanoseconds: 300_000_000)
+        try check(requestCount() == afterStartupLoss, "startup does not become an unlimited reconnect service")
+        try FileManager.default.removeItem(at: offline)
+
         controller.setTokens(true)
         try await waitUntil("explicitly enabling a feature can connect") { controller.connected }
         await controller.shutdown()
         let stoppedAt = requestCount()
         try await Task.sleep(nanoseconds: 200_000_000)
         try check(!controller.connected && requestCount() == stoppedAt, "shutdown stops all connection work")
+
+        // A click on manual connected launch grants this launch only, without changing future cold-start consent.
+        preferences.set(false, forKey: SidebarController.startupConnectionKey)
+        try Data().write(to: offline)
+        let manual = SidebarController(preferences: preferences, discovery: SidebarDiscovery(port: port), refreshInterval: 40_000_000)
+        manual.start()
+        try await waitUntil("manual launch begins with an offline client") { manual.needsConnection }
+        manual.prepareForClientLaunch(connect: true)
+        manual.clientDidChange()
+        let manualBeforeReady = requestCount()
+        try await waitUntil("explicit manual launch owns its bounded connection wait") { requestCount() >= manualBeforeReady + 2 }
+        try check(!manual.startupConnectionAllowed && manual.startupArguments.isEmpty,
+                  "manual launch does not grant consent to future automatic launches")
+        try FileManager.default.removeItem(at: offline)
+        try await waitUntil("manual launched endpoint restores enabled sidebar features") { manual.connected && manual.clientReady }
+        await manual.shutdown()
         print("Sidebar lifecycle checks passed: \(assertions) assertions (real controller, isolated HTTP/WebSocket; no Codex launch or quit).")
     }
 }

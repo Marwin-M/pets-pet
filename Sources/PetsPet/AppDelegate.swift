@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import SwiftUI
+import UniformTypeIdentifiers
 import PetsPetCore
 import PetsPetSidebar
 
@@ -17,6 +18,13 @@ import PetsPetSidebar
     private let sidebar = SidebarController()
     private let sidebarQuota = SidebarQuotaRenderer()
     private var componentPosition = ComponentPosition.followPet
+    private let startup = CodexStartupController()
+    private let termination = ApplicationTerminationController()
+    private lazy var clientLifecycle = CodexClientLifecycle(isClientRunning: { CodexStartupEnvironment.live.isRunning() },
+                                                           quit: { [weak self] in self?.termination.request() })
+    private let startupAnimation = StartupAnimationController()
+    private var startupMedia: StartupMediaStore?
+    private var mediaImportTask: Task<Void, Never>?
     private var store: SupportStore?
     private var overlay: OverlayController!
     private var statusItem: NSStatusItem!
@@ -45,13 +53,19 @@ import PetsPetSidebar
     private var connectionStatusItem: NSMenuItem?
     private var connectionTokenItem: NSMenuItem?
     private var enableConnectionItem: NSMenuItem?
+    private var launchClientItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         let peers = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "com.marwin.petspet")
-        if peers.contains(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) { NSApp.terminate(nil); return }
-        do { store = try SupportStore() }
+        if peers.contains(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) { termination.request(); return }
+        do {
+            let support = try SupportStore()
+            store = support
+            startupMedia = StartupMediaStore(directory: support.directory)
+        }
         catch { showStorageError(); return }
+        componentEnabled = UserDefaults.standard.object(forKey: "componentEnabled") as? Bool ?? true
         model.appearance = AppearancePreference(savedValue: UserDefaults.standard.string(forKey: "appearance"))
         model.contentMode = QuotaDisplayMode(savedValue: UserDefaults.standard.string(forKey: QuotaDisplayMode.defaultsKey))
         componentPosition = ComponentPosition(savedValue: UserDefaults.standard.string(forKey: ComponentPosition.defaultsKey))
@@ -94,6 +108,7 @@ import PetsPetSidebar
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.model.now = Date()
+                if !self.suspended { self.startupAnimation.recordWindowFrame() }
                 if !self.suspended && (self.state.rect != nil || self.componentPosition == .sidebarBottom && self.componentEnabled) && Date().timeIntervalSince(self.lastFetch) >= 60 { self.fetch() }
             }
         }
@@ -103,15 +118,127 @@ import PetsPetSidebar
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(wake), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(codexChanged(_:)), name: NSWorkspace.didLaunchApplicationNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(codexChanged(_:)), name: NSWorkspace.didTerminateApplicationNotification, object: nil)
-        if componentPosition == .followPet && !AXIsProcessTrusted() { showSetup() }
+        configureStartup()
+        beginStartup()
+        if !startup.isStarting && componentPosition == .followPet && !AXIsProcessTrusted() { showSetup() }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        Task { await sidebar.shutdown(); NSApp.reply(toApplicationShouldTerminate: true) }
+        suspended = true
+        clientLifecycle.cancel()
+        startup.cancel(); startupAnimation.dismissImmediately(); mediaImportTask?.cancel()
+        termination.beginCleanup { [sidebar] in await sidebar.shutdown() }
         return .terminateLater
     }
     func applicationWillTerminate(_ notification: Notification) { petClicks.stop(); monitor.stop(); quota.stop(); dailyUsageTask?.cancel(); clock?.invalidate(); overlay?.hide() }
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showSetup(); return true }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { beginStartup(); return true }
+
+    private var autoLaunchEnabled: Bool { UserDefaults.standard.object(forKey: CodexStartupController.autoLaunchKey) as? Bool ?? true }
+    private var startupAnimationEnabled: Bool { UserDefaults.standard.object(forKey: CodexStartupController.animationKey) as? Bool ?? true }
+
+    private func configureStartup() {
+        startup.presentationReady = { [weak self] in self?.startupAnimation.readyForLaunch ?? true }
+        startup.interfaceReady = { [weak self] in
+            if let self, self.sidebar.connected { return self.sidebar.clientReady }
+            return await CodexStartupEnvironment.accessibleInterfaceReady()
+        }
+        startup.onWillLaunch = { [weak self] in
+            guard let self else { return [] }
+            self.sidebar.authorizeStartupIfNeeded()
+            self.sidebar.prepareForClientLaunch()
+            return self.sidebar.startupArguments
+        }
+        startup.onPresent = { [weak self] in
+            guard let self else { return }
+            self.overlay.hide()
+            self.sidebar.setQuotaEnabled(false)
+            self.startupAnimation.dismissImmediately()
+            if self.startupAnimationEnabled { self.startupAnimation.show(url: self.startupMedia?.url) }
+        }
+        startup.onFinish = { [weak self] success in
+            guard let self else { return }
+            self.startupAnimation.finish()
+            self.sidebar.finishClientLaunch(success: success)
+            guard !self.suspended else { return }
+            self.sidebar.setQuotaEnabled(self.componentPosition == .sidebarBottom && self.componentEnabled)
+            if self.componentPosition == .followPet {
+                self.monitor.refresh()
+                if success && !AXIsProcessTrusted() { self.showSetup() }
+            }
+            self.updateStatusHint()
+        }
+        startup.onWindowReady = { [weak self] in self?.startupAnimation.matchCurrentWindow() }
+        startup.onError = { [weak self] message in self?.showStartupError(message) }
+    }
+
+    private func beginStartup() { startup.start(enabled: autoLaunchEnabled && !suspended, animated: startupAnimationEnabled) }
+
+    private var canLaunchClient: Bool { !suspended && !sidebar.opening && startup.canStart }
+
+    @objc private func launchClient() {
+        guard canLaunchClient else { return }
+        clientLifecycle.cancel()
+        startup.start(enabled: true, animated: startupAnimationEnabled, launchPreparation: { [weak self] in
+            self?.sidebar.prepareForClientLaunch(connect: true)
+            return SidebarController.localConnectionArguments
+        })
+        updateOpenConnectionMenu()
+    }
+
+    @objc private func toggleAutoLaunch() {
+        UserDefaults.standard.set(!autoLaunchEnabled, forKey: CodexStartupController.autoLaunchKey)
+    }
+    @objc private func toggleQuitWithClient() {
+        clientLifecycle.setQuitWithClient(!clientLifecycle.quitWithClient)
+    }
+    @objc private func toggleStartupAnimation() {
+        UserDefaults.standard.set(!startupAnimationEnabled, forKey: CodexStartupController.animationKey)
+        if !startupAnimationEnabled { startupAnimation.dismissImmediately() }
+    }
+    @objc private func toggleStartupConnection() { sidebar.toggleStartupConnection() }
+    @objc private func previewStartupAnimation() {
+        guard !startup.isStarting, !startupAnimation.isPreviewing, mediaImportTask == nil else { return }
+        startupAnimation.show(url: startupMedia?.url, preview: true)
+    }
+    @objc private func endStartupPreview() {
+        guard startupAnimation.isPreviewing else { return }
+        startupAnimation.finish()
+    }
+    @objc private func resetStartupMedia() {
+        guard mediaImportTask == nil else { return }
+        startupAnimation.dismissImmediately()
+        startupMedia?.reset()
+    }
+    @objc private func chooseStartupMedia() {
+        guard mediaImportTask == nil, !startup.isStarting, let startupMedia else { return }
+        let picker = NSOpenPanel()
+        picker.title = "选择启动动画"
+        picker.message = "支持单文件 HTML、MOV、MP4 和 PNG。等比铺满、居中裁切。动画播放一次后停在末帧，Codex 就绪后结束。HTML 的图片和脚本需内嵌，可发送 splash:done 结束事件或声明 petspet-duration 秒数。上限 200 MB，PNG 不超过 4096 × 4096。"
+        picker.allowedContentTypes = [.html, .quickTimeMovie, .mpeg4Movie, .png]
+        picker.allowsMultipleSelection = false
+        picker.canChooseDirectories = false
+        NSApp.activate(ignoringOtherApps: true)
+        guard picker.runModal() == .OK, let url = picker.url else { return }
+        mediaImportTask = Task { [weak self] in
+            defer { self?.mediaImportTask = nil }
+            do {
+                try await startupMedia.importFile(url)
+                guard !Task.isCancelled, let self, !self.suspended, !self.startup.isStarting else { return }
+                self.startupAnimation.show(url: startupMedia.url, preview: true)
+            } catch {
+                if !Task.isCancelled { self?.showStartupError("未能导入开场素材：\(error.localizedDescription)") }
+            }
+        }
+    }
+    private func showStartupError(_ message: String) {
+        guard !suspended else { return }
+        let alert = NSAlert()
+        alert.messageText = "Pet’s Pet 启动设置"
+        alert.informativeText = message
+        alert.addButton(withTitle: "知道了")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+    }
 
     private func receive(_ next: PetState) {
         guard !suspended, componentPosition == .followPet else { return }
@@ -157,7 +284,7 @@ import PetsPetSidebar
     }
 
     private func updateOverlay() -> CGRect? {
-        guard componentPosition == .followPet, componentEnabled, !suspended else { overlay.hide(); return nil }
+        guard componentPosition == .followPet, componentEnabled, !suspended, !startup.isStarting else { overlay.hide(); return nil }
         return overlay.update(state)
     }
 
@@ -168,7 +295,8 @@ import PetsPetSidebar
 
     private func toggleComponent() {
         componentEnabled.toggle()
-        sidebar.setQuotaEnabled(componentPosition == .sidebarBottom && componentEnabled)
+        UserDefaults.standard.set(componentEnabled, forKey: "componentEnabled")
+        sidebar.setQuotaEnabled(componentPosition == .sidebarBottom && componentEnabled && !startup.isStarting)
         if componentEnabled && componentPosition == .followPet {
             // Hidden components use 1 Hz tracking too. Confirm their current
             // position before showing, rather than flashing last second's frame.
@@ -279,6 +407,29 @@ import PetsPetSidebar
         item("启用侧栏连接…", #selector(enableSidebarConnection), in: connection)
         enableConnectionItem = connection.items.last
 
+        let launch = submenu("启动设置", in: menu)
+        item("启动 ChatGPT", #selector(launchClient), in: launch)
+        launchClientItem = launch.items.last
+        launch.addItem(.separator())
+        item("打开 Pet’s Pet 时启动 Codex", #selector(toggleAutoLaunch), in: launch)
+        launch.items.last?.state = autoLaunchEnabled ? .on : .off
+        item("ChatGPT 退出时退出 Pet’s Pet", #selector(toggleQuitWithClient), in: launch)
+        launch.items.last?.state = clientLifecycle.quitWithClient ? .on : .off
+        launch.items.last?.toolTip = "ChatGPT 退出时自动退出 Pet’s Pet；只关闭窗口不触发。退出 Pet’s Pet 不会关闭 ChatGPT。"
+        item("显示启动动画", #selector(toggleStartupAnimation), in: launch)
+        launch.items.last?.state = startupAnimationEnabled ? .on : .off
+        item("启动时恢复侧栏连接…", #selector(toggleStartupConnection), in: launch)
+        launch.items.last?.state = sidebar.startupConnectionAllowed ? .on : .off
+        launch.addItem(.separator())
+        label(mediaImportTask == nil ? "当前素材：\(startupMedia?.title ?? "默认动画")" : "正在导入素材…", in: launch, secondary: true)
+        item("选择自定义素材…", #selector(chooseStartupMedia), in: launch)
+        launch.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting
+        item(startupAnimation.isPreviewing ? "结束预览" : "预览动画（播放一遍）",
+             startupAnimation.isPreviewing ? #selector(endStartupPreview) : #selector(previewStartupAnimation), in: launch)
+        launch.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting
+        item("恢复默认动画", #selector(resetStartupMedia), in: launch)
+        launch.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting && startupMedia?.selection != nil
+
         let tools = submenu("工具与诊断", in: menu)
         item("权限与检测状态…", #selector(showSetup), in: tools)
         item("重新检测宠物", #selector(rescan), in: tools)
@@ -294,7 +445,7 @@ import PetsPetSidebar
         dataMenuItems = []
         updatedMenuItem = nil; dataStatusItem = nil; refreshMenuItem = nil
         connectionMenuItem = nil; connectionStatusItem = nil; connectionTokenItem = nil; enableConnectionItem = nil
-        componentMenuItem = nil
+        componentMenuItem = nil; launchClientItem = nil
     }
 
     private func updateOpenDataMenu() {
@@ -326,7 +477,8 @@ import PetsPetSidebar
             setLabel(sidebar.tokenStatus, on: item, secondary: true)
             item.isHidden = sidebar.tokenStatus.isEmpty
         }
-        enableConnectionItem?.isEnabled = !sidebar.opening && !sidebar.connected && sidebar.hasEnabledFeatures
+        enableConnectionItem?.isEnabled = !startup.isStarting && !sidebar.opening && !sidebar.connected && sidebar.hasEnabledFeatures
+        launchClientItem?.isEnabled = canLaunchClient
     }
 
     private func submenu(_ title: String, in menu: NSMenu) -> NSMenu {
@@ -341,6 +493,7 @@ import PetsPetSidebar
     @objc private func enableSidebarConnection() { sidebar.enableConnection() }
 
     private var componentPhase: String {
+        if startup.isStarting { return "正在打开 Codex…" }
         guard componentPosition == .sidebarBottom else { return state.phase }
         if !componentEnabled { return "侧栏底部组件已隐藏" }
         if !sidebar.connected { return "侧栏底部：等待侧栏连接" }
@@ -353,7 +506,7 @@ import PetsPetSidebar
         UserDefaults.standard.set(choice.rawValue, forKey: ComponentPosition.defaultsKey)
         petClicks.cancelPendingClick(); monitor.cancelDragActivity()
         overlay.hide()
-        sidebar.setQuotaEnabled(choice == .sidebarBottom && componentEnabled)
+        sidebar.setQuotaEnabled(choice == .sidebarBottom && componentEnabled && !startup.isStarting)
         state.rect = nil; state.occupiedRect = nil
         if choice == .followPet && !suspended { petClicks.start(); monitor.start(); monitor.refresh() }
         else { petClicks.stop(); monitor.stop() }
@@ -390,6 +543,11 @@ import PetsPetSidebar
         petClicks.updateTarget(processID: 0, windowID: nil, rect: nil)
         if componentPosition == .followPet { monitor.rescan() }
         sidebar.clientDidChange()
+        updateOpenConnectionMenu()
+        if notification.name == NSWorkspace.didTerminateApplicationNotification {
+            clientLifecycle.clientDidTerminate(bundleIdentifier: app.bundleIdentifier, processID: app.processIdentifier,
+                                               restartingProcessID: sidebar.restartingClientProcessID)
+        }
     }
     @discardableResult private func label(_ title: String, in menu: NSMenu, secondary: Bool = false, prominent: Bool = false) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
@@ -417,17 +575,20 @@ import PetsPetSidebar
         overlay.hide()
         if componentPosition == .followPet { monitor.rescan() }
     }
-    @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func quit() { termination.request() }
     @objc private func openDiagnostics() { if let store { NSWorkspace.shared.open(store.directory) } }
     @objc private func sleep() {
         suspended = true
+        startup.cancel(); startupAnimation.dismissImmediately()
         dailyUsageTask?.cancel(); dailyLoading = false
         sidebar.setPaused(true)
         state.rect = nil; state.occupiedRect = nil
         petClicks.stop(); monitor.stop(); overlay.hide()
     }
     @objc private func wake() {
-        suspended = false; sidebar.setPaused(false)
+        suspended = false
+        sidebar.setQuotaEnabled(componentPosition == .sidebarBottom && componentEnabled)
+        sidebar.setPaused(false)
         if componentPosition == .followPet { petClicks.start(); monitor.stop(); monitor.rescan(); monitor.start() }
         fetch()
     }
@@ -468,6 +629,6 @@ import PetsPetSidebar
     private func showStorageError() {
         let alert = NSAlert(); alert.messageText = "无法创建 Pet's Pet 数据目录"
         alert.informativeText = "请检查 ~/Library/Application Support/PetsPet/ 的访问权限后重新打开。"
-        alert.runModal(); NSApp.terminate(nil)
+        alert.runModal(); termination.request()
     }
 }
