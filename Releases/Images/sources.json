@@ -256,5 +256,33 @@
     "source": "native loading review during 1.7.0 development",
     "kind": "historical native loading review sample",
     "sha256": "9bdf181c75848b11d00577df31d4927d7469ed0b4b85b1bc883af6b250ec67ad"
+  },
+  {
+    "version": "1.7.1",
+    "file": "1.7.1/startup-light.png",
+    "source": "native WebKit checks of Sources/PetsPet/DefaultStartup.html",
+    "kind": "native HTML foreground render; no system blur or live-client screenshot",
+    "sha256": "d93aa120befe453c69275312827c60459ade7eff9309f0cd7e197c6eb860e390"
+  },
+  {
+    "version": "1.7.1",
+    "file": "1.7.1/startup-light-ultrawide.png",
+    "source": "native WebKit checks of Sources/PetsPet/DefaultStartup.html",
+    "kind": "native HTML foreground render; no system blur or live-client screenshot",
+    "sha256": "6f950f139bd48810e2ac1f7014c1af5010cb24de94cbf315919df58d6a3798dc"
+  },
+  {
+    "version": "1.7.1",
+    "file": "1.7.1/startup-dark.png",
+    "source": "native WebKit checks of Sources/PetsPet/DefaultStartupDark.html",
+    "kind": "native HTML foreground render; no system blur or live-client screenshot",
+    "sha256": "08d256ab531db494751ae2cc549007b4b9f29da87505d8f5f31f465508c6dc7b"
+  },
+  {
+    "version": "1.7.1",
+    "file": "1.7.1/startup-dark-ultrawide.png",
+    "source": "native WebKit checks of Sources/PetsPet/DefaultStartupDark.html",
+    "kind": "native HTML foreground render; no system blur or live-client screenshot",
+    "sha256": "2ea67691b0e6e69712a34d22d045e24b5bb362fc2b9f7631479f9464dbb2ac3e"
   }
 ]

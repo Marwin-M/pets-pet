@@ -282,51 +282,51 @@ private func check(_ value: @autoclosure () -> Bool, _ message: String) throws {
         let preferences = UserDefaults(suiteName: suite)!
         defer { preferences.removePersistentDomain(forName: suite) }
         let store = StartupMediaStore(directory: root, preferences: preferences)
-        try check(store.url == nil, "empty selection uses default loading")
+        try check(store.url(for: .light) == nil, "empty selection uses default loading")
         let png = root.appendingPathComponent("artwork.PNG")
         try writePNG(png)
-        try await store.importFile(png)
-        let imported = store.url!
+        try await store.importFile(png, for: .light)
+        let imported = store.url(for: .light)!
         try check(imported != png && FileManager.default.fileExists(atPath: imported.path), "PNG import owns a separate managed copy")
         let importedData = try Data(contentsOf: imported), sourceData = try Data(contentsOf: png)
         try check(importedData == sourceData, "import preserves image bytes")
         try FileManager.default.removeItem(at: png)
         let restored = StartupMediaStore(directory: root, preferences: preferences)
-        try check(restored.url == imported && restored.title == "artwork.PNG", "selection survives restart and source removal")
+        try check(restored.url(for: .light) == imported && restored.title(for: .light) == "artwork.PNG", "selection survives restart and source removal")
         let bad = root.appendingPathComponent("broken.mp4")
         try Data("invalid video".utf8).write(to: bad)
-        do { try await store.importFile(bad); throw NSError(domain: "Expected video rejection", code: 1) }
+        do { try await store.importFile(bad, for: .light); throw NSError(domain: "Expected video rejection", code: 1) }
         catch let error as NSError where error.domain == "Expected video rejection" { throw error }
-        catch { try check(store.url == imported, "failed video import preserves previous selection") }
+        catch { try check(store.url(for: .light) == imported, "failed video import preserves previous selection") }
         let fakePNG = root.appendingPathComponent("broken.png")
         try Data("invalid image".utf8).write(to: fakePNG)
-        do { try await store.importFile(fakePNG); throw NSError(domain: "Expected PNG rejection", code: 1) }
+        do { try await store.importFile(fakePNG, for: .light); throw NSError(domain: "Expected PNG rejection", code: 1) }
         catch let error as NSError where error.domain == "Expected PNG rejection" { throw error }
-        catch { try check(store.url == imported, "failed PNG import preserves previous selection") }
+        catch { try check(store.url(for: .light) == imported, "failed PNG import preserves previous selection") }
         let unsupported = root.appendingPathComponent("artwork.gif")
         try Data([1]).write(to: unsupported)
-        do { try await store.importFile(unsupported); throw NSError(domain: "Expected extension rejection", code: 1) }
+        do { try await store.importFile(unsupported, for: .light); throw NSError(domain: "Expected extension rejection", code: 1) }
         catch let error as NSError where error.domain == "Expected extension rejection" { throw error }
-        catch { try check(store.url == imported, "unsupported extension does not replace selection") }
+        catch { try check(store.url(for: .light) == imported, "unsupported extension does not replace selection") }
         let oversized = root.appendingPathComponent("oversized.mov")
         FileManager.default.createFile(atPath: oversized.path, contents: nil)
         let oversizedHandle = try FileHandle(forWritingTo: oversized)
         try oversizedHandle.truncate(atOffset: 200 * 1024 * 1024 + 1)
         try oversizedHandle.close()
-        do { try await store.importFile(oversized); throw NSError(domain: "Expected size rejection", code: 1) }
+        do { try await store.importFile(oversized, for: .light); throw NSError(domain: "Expected size rejection", code: 1) }
         catch let error as NSError where error.domain == "Expected size rejection" { throw error }
-        catch { try check(store.url == imported, "oversized media is rejected before copying") }
+        catch { try check(store.url(for: .light) == imported, "oversized media is rejected before copying") }
         let hugePNG = root.appendingPathComponent("wide.png")
         try writePNG(hugePNG, width: 4097, height: 1)
-        do { try await store.importFile(hugePNG); throw NSError(domain: "Expected image dimension rejection", code: 1) }
+        do { try await store.importFile(hugePNG, for: .light); throw NSError(domain: "Expected image dimension rejection", code: 1) }
         catch let error as NSError where error.domain == "Expected image dimension rejection" { throw error }
-        catch { try check(store.url == imported, "excessive image dimensions do not replace selection") }
+        catch { try check(store.url(for: .light) == imported, "excessive image dimensions do not replace selection") }
         for (ext, type) in [("mp4", AVFileType.mp4), ("mov", AVFileType.mov)] {
             let video = root.appendingPathComponent("clip." + ext)
             try await writeVideo(video, type: type)
-            let old = store.url!
-            try await store.importFile(video)
-            try check(store.url?.pathExtension == ext && !FileManager.default.fileExists(atPath: old.path), "valid \(ext) imports and replaces old asset")
+            let old = store.url(for: .light)!
+            try await store.importFile(video, for: .light)
+            try check(store.url(for: .light)?.pathExtension == ext && !FileManager.default.fileExists(atPath: old.path), "valid \(ext) imports and replaces old asset")
             let player = StartupAnimationController.videoPlayer(url: video)
             let item = player.currentItem
             player.play()
@@ -348,25 +348,109 @@ private func check(_ value: @autoclosure () -> Bool, _ message: String) throws {
         }
         let bundledHTML = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/PetsPet/DefaultStartup.html")
-        let oldVideo = store.url!
-        try await store.importFile(bundledHTML)
-        let htmlCopy = store.url!
+        let oldVideo = store.url(for: .light)!
+        try await store.importFile(bundledHTML, for: .light)
+        let htmlCopy = store.url(for: .light)!
         let originalHTML = try Data(contentsOf: bundledHTML), copiedHTML = try Data(contentsOf: htmlCopy)
         try check(originalHTML == copiedHTML && !FileManager.default.fileExists(atPath: oldVideo.path), "self-contained HTML imports as an exact managed copy")
         let brokenHTML = root.appendingPathComponent("broken.html")
         try Data([0xff, 0xfe, 0xff]).write(to: brokenHTML)
-        do { try await store.importFile(brokenHTML); throw NSError(domain: "Expected HTML rejection", code: 1) }
+        do { try await store.importFile(brokenHTML, for: .light); throw NSError(domain: "Expected HTML rejection", code: 1) }
         catch let error as NSError where error.domain == "Expected HTML rejection" { throw error }
-        catch { try check(store.url == htmlCopy, "invalid HTML leaves the selected animation intact") }
-        try check(StartupMediaStore(directory: root, preferences: preferences).url == htmlCopy, "HTML selection survives restart")
+        catch { try check(store.url(for: .light) == htmlCopy, "invalid HTML leaves the selected animation intact") }
+        try check(StartupMediaStore(directory: root, preferences: preferences).url(for: .light) == htmlCopy, "HTML selection survives restart")
         let items = try FileManager.default.contentsOfDirectory(at: imported.deletingLastPathComponent(), includingPropertiesForKeys: nil)
         try check(items.count == 1, "only the final asset remains, failed imports are cleaned up")
-        let last = store.url!
-        store.reset()
-        try check(store.url == nil && !FileManager.default.fileExists(atPath: last.path), "restore default clears saved choice and managed copy")
+        let last = store.url(for: .light)!
+        store.reset(for: .light)
+        try check(store.url(for: .light) == nil && !FileManager.default.fileExists(atPath: last.path), "restore default clears saved choice and managed copy")
         let unsafe = StartupMedia(filename: "../outside.png", originalName: "outside")
+        preferences.removeObject(forKey: StartupMediaStore.selectionsKey)
         preferences.set(try JSONEncoder().encode(unsafe), forKey: StartupMediaStore.selectionKey)
-        try check(StartupMediaStore(directory: root, preferences: preferences).url == nil, "saved path traversal is rejected")
+        try check(StartupMediaStore(directory: root, preferences: preferences).url(for: .light) == nil, "saved path traversal is rejected")
+    }
+
+    @MainActor static func themedMedia() async throws {
+        for (preference, systemDark, expected) in [
+            (AppearancePreference.light, false, StartupTheme.light), (.light, true, .light),
+            (.dark, false, .dark), (.dark, true, .dark), (.system, false, .light), (.system, true, .dark)
+        ] {
+            try check(StartupTheme.resolve(preference, systemDark: systemDark) == expected,
+                      "animation resolves explicit/system appearance: \(preference), system dark \(systemDark)")
+        }
+        for theme in StartupTheme.allCases {
+            try check(StartupMediaStore.defaultURL(for: theme).map { FileManager.default.isReadableFile(atPath: $0.path) } == true,
+                      "\(theme) default is discoverable beside the executable")
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("PetsPetThemes-" + UUID().uuidString)
+        let directory = root.appendingPathComponent("StartupMedia")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = "PetsPetThemes-" + UUID().uuidString, preferences = UserDefaults(suiteName: suite)!
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let original = directory.appendingPathComponent("legacy.png")
+        try writePNG(original)
+        let legacy = StartupMedia(filename: "legacy.png", originalName: "Original.png")
+        preferences.set(try JSONEncoder().encode(legacy), forKey: StartupMediaStore.selectionKey)
+        let store = StartupMediaStore(directory: root, preferences: preferences)
+        try check(store.url(for: .light) == original && store.url(for: .dark) == original,
+                  "legacy import migrates to both appearances without moving its private file")
+        try check(preferences.object(forKey: StartupMediaStore.selectionKey) == nil,
+                  "migration commits the new record before retiring the legacy preference")
+        let replacement = root.appendingPathComponent("day.png")
+        try writePNG(replacement)
+        try await store.importFile(replacement, for: .light)
+        let light = store.url(for: .light)!
+        try check(light != original && store.url(for: .dark) == original && FileManager.default.fileExists(atPath: original.path),
+                  "replacing light retains the migrated file while dark still owns it")
+        let reloaded = StartupMediaStore(directory: root, preferences: preferences)
+        try check(reloaded.url(for: .light) == light && reloaded.url(for: .dark) == original,
+                  "different selections survive a restart")
+        store.reset(for: .dark)
+        try check(store.url(for: .dark) == nil && store.url(for: .light) == light && !FileManager.default.fileExists(atPath: original.path),
+                  "dark reset returns to its default and removes only its now-unreferenced file")
+        try await store.importFile(replacement, for: .dark)
+        let dark = store.url(for: .dark)!
+        let broken = root.appendingPathComponent("broken.html")
+        try Data([0xff]).write(to: broken)
+        do { try await store.importFile(broken, for: .dark); throw NSError(domain: "Expected themed rejection", code: 1) }
+        catch let error as NSError where error.domain == "Expected themed rejection" { throw error }
+        catch { try check(store.url(for: .dark) == dark && store.url(for: .light) == light, "failed dark import preserves both selections") }
+        let cancelled = Task { @MainActor in
+            withUnsafeCurrentTask { $0?.cancel() }
+            try await store.importFile(replacement, for: .dark)
+        }
+        do { try await cancelled.value; throw NSError(domain: "Expected cancellation", code: 1) }
+        catch is CancellationError { try check(store.url(for: .dark) == dark, "cancelled import never commits") }
+        let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        try check(files.count == 2,
+                  "failed and cancelled imports leave no orphan copies")
+        store.reset(for: .light)
+        try check(store.url(for: .light) == nil && store.url(for: .dark) == dark && !FileManager.default.fileExists(atPath: light.path),
+                  "light reset never touches the independent dark selection")
+        store.reset(for: .dark)
+        // Exercise reset before replacement for a shared migrated copy as well.
+        try writePNG(original)
+        preferences.removeObject(forKey: StartupMediaStore.selectionsKey)
+        preferences.set(try JSONEncoder().encode(legacy), forKey: StartupMediaStore.selectionKey)
+        let shared = StartupMediaStore(directory: root, preferences: preferences)
+        shared.reset(for: .light)
+        try check(shared.url(for: .dark) == original && FileManager.default.fileExists(atPath: original.path),
+                  "resetting one side of a shared migrated copy preserves the other")
+        let afterReset = StartupMediaStore(directory: root, preferences: preferences)
+        try check(afterReset.url(for: .light) == nil && afterReset.url(for: .dark) == original,
+                  "reset does not resurrect a legacy choice after restart")
+        shared.reset(for: .dark)
+        try check(!FileManager.default.fileExists(atPath: original.path), "last reset removes the shared copy")
+        let unsafe = StartupMedia(filename: "../outside.png", originalName: "unsafe")
+        preferences.set(try JSONEncoder().encode(["light": legacy, "dark": unsafe]), forKey: StartupMediaStore.selectionsKey)
+        let sanitized = StartupMediaStore(directory: root, preferences: preferences)
+        try check(sanitized.selection(for: .light) == legacy && sanitized.selection(for: .dark) == nil,
+                  "unsafe dark paths are rejected independently of a valid light record")
+        preferences.set(Data("broken".utf8), forKey: StartupMediaStore.selectionsKey)
+        let corrupted = StartupMediaStore(directory: root, preferences: preferences)
+        try check(corrupted.selection(for: .light) == nil && corrupted.selection(for: .dark) == nil,
+                  "damaged preference falls back to both defaults")
     }
 
     @MainActor static func rendering() throws {
@@ -403,6 +487,7 @@ private func check(_ value: @autoclosure () -> Bool, _ message: String) throws {
         try await clientExit()
         try layout()
         try await media()
+        try await themedMedia()
         try rendering()
         print("Startup checks passed: \(assertions) assertions (real coordinator, geometry, PNG/MOV/MP4 import and native fill rendering; isolated launch fixture, no Codex launch or quit).")
     }

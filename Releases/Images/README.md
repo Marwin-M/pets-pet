@@ -75,3 +75,10 @@
 ### 1.7.0
 
 `startup-html.png` 与 `startup-html-ultrawide.png` 为真实 WebKit 对内置十秒动画的普通／宽屏渲染，扩散光圈保持圆形。只展示 HTML 前景，不包含窗口背后的系统毛玻璃，也不是客户端冷启动截图。`startup-loading.png` 保留开发期间的原生 loading 样式参考；额度模式继续使用已核对的 66／88 示例，不改真实读取。
+
+
+<a id="v171"></a>
+
+### 1.7.1
+
+`startup-light.png`、`startup-dark.png` 及对应宽屏图为本版真实 WebKit 对明暗两套默认动画的渲染。浅色图为透明前景，深色图包含 Divine 素材自带背景；不含系统毛玻璃，也不是实际客户端冷启动截图。制作日期 2026-10-25；普通图 960 × 600，宽屏图 1680 × 480。浅色沿用已修正圆形光圈的资源；深色来自用户提供的 `ChatGPT-splash-divine.html`，原文件保持不变。

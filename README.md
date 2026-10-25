@@ -4,9 +4,11 @@
 
 这是独立开发的非官方工具，与 OpenAI 无隶属关系。
 
-**[下载 macOS 版](https://github.com/Marwin-M/pets-pet/releases/download/v1.7.0/PetsPet-1.7.0.zip)** · **[下载 Windows x64 预览版](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [1.7.0 更新说明](Releases/1.7.0.md) · [反馈问题](https://github.com/Marwin-M/pets-pet/issues)
+**[下载 macOS 版](https://github.com/Marwin-M/pets-pet/releases/download/v1.7.1/PetsPet-1.7.1.zip)** · **[下载 Windows x64 预览版](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [1.7.1 更新说明](Releases/1.7.1.md) · [反馈问题](https://github.com/Marwin-M/pets-pet/issues)
 
-macOS 当前版本为 **1.7.0**，安装包、匹配源码和校验文件见 [1.7.0 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.0)。Windows 预览版继续使用 **1.6.0**，从 [Windows 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0) 获取。
+macOS 当前公开下载版本为 **1.7.1**，安装包、匹配源码和校验文件见 [1.7.1 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.1)。Windows 预览版继续使用 **1.6.0**，从 [Windows 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0) 获取。
+
+**1.7.1（构建 27）**：默认和自定义启动动画均支持明暗两套，跟随 Pet’s Pet 外观；旧自定义素材自动保留。安装包、匹配源码与校验文件已同步，说明见 [1.7.1 更新日志](Releases/1.7.1.md)。
 
 1.7.0 新增自定义启动动画、系统毛玻璃背景、手动启动和可选的跟随退出。Windows [适配预览版](Windows/README.md) 保持原有范围，支持额度、跟随宠物和侧栏组件，尚不包含本次启动功能、Token 与目录统计。
 
@@ -18,7 +20,7 @@ macOS 当前版本为 **1.7.0**，安装包、匹配源码和校验文件见 [1.
 - 侧栏用黑白灰色块表示对话累计 Token 用量，悬浮查看输入、缓存命中和输出明细。
 - 项目名称后显示本地目录内容大小，按 Finder「大小」口径统计。
 - 额度组件、对话色块和项目大小可分别控制。读取失败或数据缺失会显示未知状态，不以零值代替。
-- 打开 Pet’s Pet 可自动启动 Codex，支持自定义 HTML、MOV、MP4、PNG 开场；已运行时跳过动画。内置动画适配宽屏，客户端就绪后与毛玻璃背景一起渐隐。
+- 打开 Pet’s Pet 可自动启动 Codex，支持自定义 HTML、MOV、MP4、PNG 开场；已运行时跳过动画。内置动画适配宽屏，客户端就绪后与毛玻璃背景一起渐隐。1.7.1 可在「启动设置 → 浅色动画／深色动画」分别选择、预览和恢复默认，外观设为「跟随系统」时随系统明暗选取。
 - 可手动带本机连接参数启动客户端；「ChatGPT 退出时退出 Pet’s Pet」默认开启，可关闭并保存选择。界面中的 ChatGPT 启动目标仍为 Codex 客户端。
 
 | 浅色 | 深色 |
@@ -48,7 +50,7 @@ macOS 当前版本为 **1.7.0**，安装包、匹配源码和校验文件见 [1.
 
 ## macOS 下载与安装
 
-1. 打开 [1.7.0 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.0)，在 **Assets** 下载 `PetsPet-1.7.0.zip`。仅使用应用时，不需要下载 Source code 或 `-source.zip`。
+1. 打开 [1.7.1 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.1)，在 **Assets** 下载 `PetsPet-1.7.1.zip`。仅使用应用时，不需要下载 Source code 或 `-source.zip`。
 2. 解压，将 `PetsPet.app` 放到「应用程序」文件夹。先确定安装位置，再授权和打开；升级前请先自行退出旧版。
 3. 当前包使用本地临时签名，**尚未经过 Apple 公证**。若系统提示无法验证开发者，请先确认下载来源及校验值，再按 [Apple 官方说明](https://support.apple.com/zh-cn/102445)，在「系统设置 → 隐私与安全性」中确认是否仍要打开。不需要关闭系统安全保护。
 4. 首次运行时打开辅助功能设置，在「隐私与安全性 → 辅助功能」中允许 **PetsPet**。升级后如果开关已开但应用仍提示未授权，请移除旧条目并重新添加当前安装位置的应用。
@@ -59,7 +61,7 @@ macOS 当前版本为 **1.7.0**，安装包、匹配源码和校验文件见 [1.
 下载页同时提供 `SHA256SUMS.txt`。需要检查下载完整性时，在下载目录运行：
 
 ```sh
-shasum -a 256 PetsPet-1.7.0.zip
+shasum -a 256 PetsPet-1.7.1.zip
 ```
 
 将输出与同一下载页的校验文件中该文件一行比较。校验值用于核对文件完整性，不代表 Apple 公证或全部兼容性验收。
@@ -91,7 +93,7 @@ shasum -a 256 PetsPet-1.7.0.zip
 
 ## 已知限制与验证范围
 
-- macOS 发布包是 1.7.0、内部构建 26，使用本地临时签名，尚未做 Apple 公证。
+- macOS 发布包是 1.7.1、内部构建 27，使用本地临时签名，尚未做 Apple 公证。
 - 本机已完成构建、签名及包校验，并运行核心规则、侧栏读取与连接生命周期检查；测试中的固定样本不进入正式数据读取。
 - 其他人的 Mac、其他 macOS／Codex 版本尚未验收。多屏、透明窗口遮挡、快速拖动、睡眠恢复及真实侧栏连接仍需实机验证；自动化检查不代表这些场景均已通过。
 - 跟随模式依赖辅助功能树，权限不足或宠物不可见时隐藏；固定模式依赖侧栏连接和页面定位，未连接、侧栏收起或无法确认位置时隐藏。
@@ -124,9 +126,13 @@ macOS 1.7.0 新增启动动画和自动打开 Codex；行为、素材规格及�
 
 「ChatGPT 退出时退出 Pet’s Pet」开关位于启动设置，默认开启并保存选择；关闭后客户端退出只隐藏组件，Pet’s Pet 留在菜单栏。
 
-<img src="Releases/Images/1.7.0/startup-html.png" width="600" alt="1.7.0 默认 HTML 在原生网页组件中的渲染样式，实际尺寸跟随上次 Codex 主窗口，不是实际冷启动截图">
+1.7.1 默认动画按 Pet’s Pet 外观选择，浅色和深色也可分别自定义：
 
-上图为默认 HTML 前景在原生网页组件中的渲染样式，不包含窗口背后的系统毛玻璃，也不是实际 Codex 冷启动截图。HTML 保留作者的自适应布局；视频和 PNG 按窗口等比铺满、居中裁切。
+| 浅色默认动画 | 深色默认动画 |
+| --- | --- |
+| <img src="Releases/Images/1.7.1/startup-light.png" width="460" alt="1.7.1 浅色默认启动动画的原生网页渲染"> | <img src="Releases/Images/1.7.1/startup-dark.png" width="460" alt="1.7.1 Divine 深色默认启动动画的原生网页渲染"> |
+
+上图为真实 WebKit 渲染，未包含窗口背后的系统毛玻璃，也不是实际 Codex 冷启动截图。HTML 保留作者的自适应布局；视频和 PNG 按窗口等比铺满、居中裁切。公开下载见页面顶部，详见 [1.7.1 更新说明](Releases/1.7.1.md)。
 
 | 目录 | 用途 |
 | --- | --- |

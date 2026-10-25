@@ -153,7 +153,7 @@ import PetsPetSidebar
             self.overlay.hide()
             self.sidebar.setQuotaEnabled(false)
             self.startupAnimation.dismissImmediately()
-            if self.startupAnimationEnabled { self.startupAnimation.show(url: self.startupMedia?.url) }
+            if self.startupAnimationEnabled { self.showStartupAnimation(theme: self.startupTheme) }
         }
         startup.onFinish = { [weak self] success in
             guard let self else { return }
@@ -196,23 +196,32 @@ import PetsPetSidebar
         if !startupAnimationEnabled { startupAnimation.dismissImmediately() }
     }
     @objc private func toggleStartupConnection() { sidebar.toggleStartupConnection() }
-    @objc private func previewStartupAnimation() {
+    private var startupTheme: StartupTheme {
+        StartupTheme.resolve(model.appearance, systemDark: NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua)
+    }
+    private func showStartupAnimation(theme: StartupTheme, preview: Bool = false) {
+        startupAnimation.show(url: startupMedia?.url(for: theme), preview: preview, theme: theme)
+    }
+    @objc private func previewStartupAnimation(_ sender: NSMenuItem) {
         guard !startup.isStarting, !startupAnimation.isPreviewing, mediaImportTask == nil else { return }
-        startupAnimation.show(url: startupMedia?.url, preview: true)
+        let theme = (sender.representedObject as? String).flatMap(StartupTheme.init(rawValue:)) ?? startupTheme
+        showStartupAnimation(theme: theme, preview: true)
     }
     @objc private func endStartupPreview() {
         guard startupAnimation.isPreviewing else { return }
         startupAnimation.finish()
     }
-    @objc private func resetStartupMedia() {
-        guard mediaImportTask == nil else { return }
+    @objc private func resetStartupMedia(_ sender: NSMenuItem) {
+        guard mediaImportTask == nil, !startup.isStarting,
+              let raw = sender.representedObject as? String, let theme = StartupTheme(rawValue: raw) else { return }
         startupAnimation.dismissImmediately()
-        startupMedia?.reset()
+        startupMedia?.reset(for: theme)
     }
-    @objc private func chooseStartupMedia() {
-        guard mediaImportTask == nil, !startup.isStarting, let startupMedia else { return }
+    @objc private func chooseStartupMedia(_ sender: NSMenuItem) {
+        guard mediaImportTask == nil, !startup.isStarting, let startupMedia,
+              let raw = sender.representedObject as? String, let theme = StartupTheme(rawValue: raw) else { return }
         let picker = NSOpenPanel()
-        picker.title = "选择启动动画"
+        picker.title = "选择\(theme.title)启动动画"
         picker.message = "支持单文件 HTML、MOV、MP4 和 PNG。等比铺满、居中裁切。动画播放一次后停在末帧，Codex 就绪后结束。HTML 的图片和脚本需内嵌，可发送 splash:done 结束事件或声明 petspet-duration 秒数。上限 200 MB，PNG 不超过 4096 × 4096。"
         picker.allowedContentTypes = [.html, .quickTimeMovie, .mpeg4Movie, .png]
         picker.allowsMultipleSelection = false
@@ -222,9 +231,9 @@ import PetsPetSidebar
         mediaImportTask = Task { [weak self] in
             defer { self?.mediaImportTask = nil }
             do {
-                try await startupMedia.importFile(url)
+                try await startupMedia.importFile(url, for: theme)
                 guard !Task.isCancelled, let self, !self.suspended, !self.startup.isStarting else { return }
-                self.startupAnimation.show(url: startupMedia.url, preview: true)
+                self.showStartupAnimation(theme: theme, preview: true)
             } catch {
                 if !Task.isCancelled { self?.showStartupError("未能导入开场素材：\(error.localizedDescription)") }
             }
@@ -421,14 +430,23 @@ import PetsPetSidebar
         item("启动时恢复侧栏连接…", #selector(toggleStartupConnection), in: launch)
         launch.items.last?.state = sidebar.startupConnectionAllowed ? .on : .off
         launch.addItem(.separator())
-        label(mediaImportTask == nil ? "当前素材：\(startupMedia?.title ?? "默认动画")" : "正在导入素材…", in: launch, secondary: true)
-        item("选择自定义素材…", #selector(chooseStartupMedia), in: launch)
+        label(mediaImportTask == nil ? "当前外观：\(startupTheme.title)" : "正在导入素材…", in: launch, secondary: true)
+        for theme in StartupTheme.allCases {
+            let group = submenu("\(theme.title)动画", in: launch)
+            label("当前素材：\(startupMedia?.title(for: theme) ?? "默认动画")", in: group, secondary: true)
+            item("选择\(theme.title)动画…", #selector(chooseStartupMedia(_:)), in: group)
+            group.items.last?.representedObject = theme.rawValue
+            group.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting
+            item("预览\(theme.title)动画（播放一遍）", #selector(previewStartupAnimation(_:)), in: group)
+            group.items.last?.representedObject = theme.rawValue
+            group.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting && !startupAnimation.isPreviewing
+            item("恢复默认\(theme.title)动画", #selector(resetStartupMedia(_:)), in: group)
+            group.items.last?.representedObject = theme.rawValue
+            group.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting && startupMedia?.selection(for: theme) != nil
+        }
+        item(startupAnimation.isPreviewing ? "结束预览" : "预览当前外观动画（播放一遍）",
+             startupAnimation.isPreviewing ? #selector(endStartupPreview) : #selector(previewStartupAnimation(_:)), in: launch)
         launch.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting
-        item(startupAnimation.isPreviewing ? "结束预览" : "预览动画（播放一遍）",
-             startupAnimation.isPreviewing ? #selector(endStartupPreview) : #selector(previewStartupAnimation), in: launch)
-        launch.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting
-        item("恢复默认动画", #selector(resetStartupMedia), in: launch)
-        launch.items.last?.isEnabled = mediaImportTask == nil && !startup.isStarting && startupMedia?.selection != nil
 
         let tools = submenu("工具与诊断", in: menu)
         item("权限与检测状态…", #selector(showSetup), in: tools)

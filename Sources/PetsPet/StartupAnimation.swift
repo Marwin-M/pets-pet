@@ -113,6 +113,7 @@ struct StartupView: View {
     static let frameKey = "lastCodexMainWindowFrame"
     static let fadeDuration: TimeInterval = 0.8
     private var panel: NSPanel?
+    private var theme: StartupTheme = .light
     private(set) var player: AVPlayer?
     private var html: StartupHTMLPlayer?
     private(set) var readyForLaunch = true
@@ -153,19 +154,21 @@ struct StartupView: View {
         panel?.setFrame(preferredFrame(), display: true)
     }
 
-    func show(url: URL?, preview: Bool = false) {
+    func show(url: URL?, preview: Bool = false, theme: StartupTheme = .light) {
         dismissImmediately()
+        self.theme = theme
         isPreviewing = preview
         let current = generation
         var image: NSImage?
         var fallback = false
-        if let url = url ?? StartupMediaStore.defaultURL {
+        if let url = url ?? StartupMediaStore.defaultURL(for: theme) {
             if url.pathExtension.lowercased() == "png" {
                 if (try? StartupMediaStore.validateImage(url)) != nil { image = NSImage(contentsOf: url) }
                 fallback = image == nil
             } else if ["html", "htm"].contains(url.pathExtension.lowercased()) {
                 do {
                     let page = StartupHTMLPlayer(document: try StartupHTMLDocument.read(url))
+                    page.webView.appearance = theme.appearance
                     html = page; readyForLaunch = false
                     page.onReady = { [weak self, weak page] in
                         guard let self, self.generation == current, self.panel != nil else { return }
@@ -208,6 +211,7 @@ struct StartupView: View {
     private func present(image: NSImage?, preview: Bool, fallback: Bool) {
         let frame = panel?.frame ?? preferredFrame()
         let window = panel ?? NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.appearance = theme.appearance
         let view = StartupView(image: image, player: player, preview: preview, fallback: fallback,
                                html: html, htmlReady: html?.ready == true, onEndPreview: { [weak self] in self?.finish() })
         if let host = window.contentView as? NSHostingView<StartupView> { host.rootView = view }

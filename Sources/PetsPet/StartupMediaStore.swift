@@ -1,6 +1,18 @@
 import AppKit
 import AVFoundation
 import ImageIO
+import PetsPetCore
+
+enum StartupTheme: String, CaseIterable {
+    case light, dark
+
+    var title: String { self == .light ? "浅色" : "深色" }
+    var appearance: NSAppearance { NSAppearance(named: self == .light ? .aqua : .darkAqua)! }
+
+    static func resolve(_ preference: AppearancePreference, systemDark: Bool) -> Self {
+        preference == .dark || preference == .system && systemDark ? .dark : .light
+    }
+}
 
 struct StartupMedia: Codable, Equatable {
     let filename: String
@@ -22,25 +34,38 @@ enum StartupMediaError: LocalizedError {
 
 /// Imports a private copy before committing the selection. A failed import leaves the old asset intact.
 @MainActor final class StartupMediaStore {
-    static let selectionKey = "startupMedia"
+    static let selectionKey = "startupMedia" // Legacy single selection, migrated once.
+    static let selectionsKey = "startupMediaByAppearance"
     private let directory: URL
     private let preferences: UserDefaults
-    private(set) var selection: StartupMedia?
-    var url: URL? { selection.flatMap { safeURL($0.filename) } }
-    var title: String { selection?.originalName ?? "默认动画" }
-    static var defaultURL: URL? {
-        if let url = Bundle.main.url(forResource: "DefaultStartup", withExtension: "html") { return url }
+    private var selections: [String: StartupMedia] = [:]
+
+    func selection(for theme: StartupTheme) -> StartupMedia? { selections[theme.rawValue] }
+    func url(for theme: StartupTheme) -> URL? { selection(for: theme).flatMap { safeURL($0.filename) } }
+    func title(for theme: StartupTheme) -> String { selection(for: theme)?.originalName ?? "默认动画" }
+
+    static func defaultURL(for theme: StartupTheme) -> URL? {
+        let name = theme == .light ? "DefaultStartup" : "DefaultStartupDark"
+        if let url = Bundle.main.url(forResource: name, withExtension: "html") { return url }
         let containers = [Bundle.main.resourceURL, Bundle.main.bundleURL, Bundle.main.executableURL?.deletingLastPathComponent()].compactMap { $0 }
-        return containers.map { $0.appendingPathComponent("PetsPet_PetsPet.bundle/DefaultStartup.html") }
+        return containers.map { $0.appendingPathComponent("PetsPet_PetsPet.bundle/\(name).html") }
             .first { FileManager.default.isReadableFile(atPath: $0.path) }
     }
 
     init(directory: URL, preferences: UserDefaults = .standard) {
         self.directory = directory.appendingPathComponent("StartupMedia", isDirectory: true)
         self.preferences = preferences
-        selection = preferences.data(forKey: Self.selectionKey).flatMap { try? JSONDecoder().decode(StartupMedia.self, from: $0) }
-        if let selection, safeURL(selection.filename) == nil {
-            self.selection = nil
+        if let data = preferences.data(forKey: Self.selectionsKey) {
+            selections = (try? JSONDecoder().decode([String: StartupMedia].self, from: data)) ?? [:]
+            selections = selections.filter { StartupTheme(rawValue: $0.key) != nil && safeURL($0.value.filename) != nil }
+        } else if preferences.object(forKey: Self.selectionsKey) == nil,
+                  let data = preferences.data(forKey: Self.selectionKey),
+                  let legacy = try? JSONDecoder().decode(StartupMedia.self, from: data), safeURL(legacy.filename) != nil {
+            // Both themes share the existing private copy until either is replaced or reset.
+            selections = [StartupTheme.light.rawValue: legacy, StartupTheme.dark.rawValue: legacy]
+        }
+        if let data = try? JSONEncoder().encode(selections) {
+            preferences.set(data, forKey: Self.selectionsKey)
             preferences.removeObject(forKey: Self.selectionKey)
         }
     }
@@ -51,7 +76,7 @@ enum StartupMediaError: LocalizedError {
         return directory.appendingPathComponent(name)
     }
 
-    func importFile(_ source: URL) async throws {
+    func importFile(_ source: URL, for theme: StartupTheme) async throws {
         let ext = source.pathExtension.lowercased()
         guard ["mov", "mp4", "png", "html", "htm"].contains(ext) else { throw StartupMediaError.unsupported }
         let access = source.startAccessingSecurityScopedResource()
@@ -86,12 +111,14 @@ enum StartupMediaError: LocalizedError {
         }
         try Task.checkCancellation()
         let next = StartupMedia(filename: destination.lastPathComponent, originalName: source.lastPathComponent)
-        let data = try JSONEncoder().encode(next)
-        let previous = url
-        preferences.set(data, forKey: Self.selectionKey)
-        selection = next
+        var updated = selections
+        updated[theme.rawValue] = next
+        let data = try JSONEncoder().encode(updated)
+        let previous = url(for: theme)
+        preferences.set(data, forKey: Self.selectionsKey)
+        selections = updated
         committed = true
-        if let previous { try? FileManager.default.removeItem(at: previous) }
+        removeIfUnused(previous)
     }
 
     static func validateImage(_ url: URL) throws {
@@ -104,10 +131,18 @@ enum StartupMediaError: LocalizedError {
         guard CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else { throw StartupMediaError.invalidImage }
     }
 
-    func reset() {
-        let previous = url
-        selection = nil
-        preferences.removeObject(forKey: Self.selectionKey)
-        if let previous { try? FileManager.default.removeItem(at: previous) }
+    func reset(for theme: StartupTheme) {
+        var updated = selections
+        updated.removeValue(forKey: theme.rawValue)
+        guard let data = try? JSONEncoder().encode(updated) else { return }
+        let previous = url(for: theme)
+        preferences.set(data, forKey: Self.selectionsKey)
+        selections = updated
+        removeIfUnused(previous)
+    }
+
+    private func removeIfUnused(_ url: URL?) {
+        guard let url, !selections.values.contains(where: { $0.filename == url.lastPathComponent }) else { return }
+        try? FileManager.default.removeItem(at: url)
     }
 }

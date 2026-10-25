@@ -143,6 +143,52 @@ import SwiftUI
         try check(cookies.isEmpty, "HTML has no account or browser cookies")
         player.stop()
         try check(player.stopped && player.webView.superview == nil, "stopping detaches and invalidates the HTML renderer")
+        phase = "dark artwork playback and layout"
+        let darkSource = root.appendingPathComponent("Sources/PetsPet/DefaultStartupDark.html")
+        let darkPlayer = StartupHTMLPlayer(document: try StartupHTMLDocument.read(darkSource))
+        window.appearance = NSAppearance(named: .darkAqua)
+        darkPlayer.webView.appearance = window.appearance
+        window.contentView = darkPlayer.webView
+        window.setContentSize(NSSize(width: 960, height: 600))
+        var darkFailed = false
+        darkPlayer.onFailure = { darkFailed = true }
+        darkPlayer.start()
+        try await wait("night artwork renders its embedded character") { darkPlayer.ready || darkFailed }
+        try check(darkPlayer.ready && !darkFailed, "night artwork loads in actual isolated WebKit")
+        let darkStarted = ProcessInfo.processInfo.systemUptime
+        let mediaDark = try await darkPlayer.webView.evaluateJavaScript("matchMedia('(prefers-color-scheme: dark)').matches") as! Bool
+        try check(mediaDark, "custom HTML receives the chosen dark appearance")
+        try await wait("night animation plays its real ten seconds", seconds: 14) { darkPlayer.completed || darkFailed }
+        try check(darkPlayer.completed && !darkFailed && ProcessInfo.processInfo.systemUptime - darkStarted >= 8,
+                  "night artwork completes naturally without an early timeout")
+        let darkFinal = try await darkPlayer.webView.evaluateJavaScript("document.querySelector('canvas').toDataURL()") as! String
+        try await Task.sleep(nanoseconds: 120_000_000)
+        let darkHeld = try await darkPlayer.webView.evaluateJavaScript("document.querySelector('canvas').toDataURL()") as! String
+        try check(darkFinal == darkHeld, "night animation freezes its last frame")
+        for (name, size) in [("dark", NSSize(width: 960, height: 600)), ("dark-ultrawide", NSSize(width: 1680, height: 480)),
+                             ("dark-portrait", NSSize(width: 480, height: 800))] {
+            window.setContentSize(size)
+            try await wait("night viewport resizes") { darkPlayer.webView.frame.size == size }
+            // A finished animation deliberately stops RAF; force its resize handler before measuring.
+            let report = try await darkPlayer.webView.evaluateJavaScript("""
+                (() => {
+                  dispatchEvent(new Event('resize')); window.seek(3.7);
+                  const c=document.querySelector('canvas'),ctx=c.getContext('2d'),m=ctx.getTransform();
+                  const pixel=ctx.getImageData(0,0,1,1).data;
+                  return {width:innerWidth,height:innerHeight,uniform:Math.abs(m.a-m.d)<1e-6,
+                    dark:pixel[0]<60&&pixel[1]<60&&pixel[2]<80&&pixel[3]===255};
+                })()
+                """) as! [String: Any]
+            try check(abs((report["width"] as! Double)-size.width)<1 && abs((report["height"] as! Double)-size.height)<1,
+                      "\(name) canvas follows its real viewport")
+            try check(report["uniform"] as! Bool && report["dark"] as! Bool, "\(name) keeps uniform scale and the dark backdrop")
+            if CommandLine.arguments.contains("--images") {
+                let image = try await darkPlayer.webView.takeSnapshot(configuration: nil)
+                let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!
+                try bitmap.representation(using: .png, properties: [:])!.write(to: root.appendingPathComponent(".build/startup-html-\(name).png"))
+            }
+        }
+        darkPlayer.stop()
         phase = "script error fallback"
         let broken = StartupHTMLPlayer(document: StartupHTMLDocument(data: Data("<html><body><script>throw new Error('invalid animation')</script></body></html>".utf8)))
         window.contentView = broken.webView
@@ -207,6 +253,22 @@ import SwiftUI
         }
         func waitForFade() async throws {
             try await wait("preview backdrop and artwork finish fading together", 2, { panel() == nil })
+        }
+        for theme in StartupTheme.allCases {
+            // Verify the real nil-custom path finds the matching bundled asset and pins the backdrop's appearance.
+            animation.show(url: nil, preview: true, theme: theme)
+            let themedWindow = panel()!
+            keepAtEdge(themedWindow)
+            try await wait("themed default reaches its first frame", 6, { animation.readyForLaunch })
+            let themedHost = themedWindow.contentView as! NSHostingView<StartupView>
+            try check(themedHost.rootView.htmlReady, "\(theme) default removes its loading indicator")
+            let page = themedHost.rootView.html!.webView
+            let title = try await page.evaluateJavaScript("document.title") as! String
+            try check(title.contains("Divine") == (theme == .dark), "\(theme) selects the corresponding bundled animation")
+            let matches = try await page.evaluateJavaScript("matchMedia('(prefers-color-scheme: dark)').matches") as! Bool
+            try check(matches == (theme == .dark) && themedWindow.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == (theme == .dark ? .darkAqua : .aqua),
+                      "\(theme) preview pins both HTML and native backdrop to the selected appearance")
+            animation.dismissImmediately()
         }
         animation.show(url: source, preview: true)
         let preview = panel()!

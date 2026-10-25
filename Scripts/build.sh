@@ -11,7 +11,7 @@ zsh Scripts/icons.sh
 cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 cp Resources/MenuBarIcon.png "$app/Contents/Resources/MenuBarIcon.png"
 cp Sources/PetsPetSidebar/Sidebar.js "$app/Contents/Resources/"
-cp Sources/PetsPet/DefaultStartup.html "$app/Contents/Resources/"
+cp Sources/PetsPet/DefaultStartup.html Sources/PetsPet/DefaultStartupDark.html "$app/Contents/Resources/"
 codesign --force --sign - --identifier com.marwin.petspet "$app"
 codesign --verify --strict "$app"
 print "Built: $app"
