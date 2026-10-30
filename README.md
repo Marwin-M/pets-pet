@@ -1,5 +1,7 @@
 # Pet's Pet
 
+中文 | [English](README.en.md)
+
 给 Codex Desktop 宠物加额度组件的本地工具。macOS 版还支持侧栏对话用量和项目文件夹大小；Windows 版为功能范围较小的预览版。
 
 这是独立开发的非官方工具，与 OpenAI 无隶属关系。
