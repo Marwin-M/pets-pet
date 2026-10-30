@@ -61,8 +61,12 @@ if(p.star)star(x,y,p.r*4.4,a,c);else{g.save();g.fillStyle=rgba(c,a*.9);g.shadowC
 function title(t){const p=seg(t,1.25,2.35);if(p<=0)return;
 const sp=eio(seg(t,1.25,2.05)),fp=eo(seg(t,1.8,2.5)),ls=(46*(1-eo(p))+8)+'px';
 glow(TX,TY,640,'236,210,150',.1*fp);
-g.save();txt(g);g.letterSpacing=ls;g.globalAlpha=fp;const f=g.createLinearGradient(0,TY-90,0,TY+90);f.addColorStop(0,'#fffaf0');f.addColorStop(.5,'#ecd9ab');f.addColorStop(1,'#b9a06a');g.fillStyle=f;g.shadowColor='rgba(236,210,150,.55)';g.shadowBlur=Q*22;g.fillText(NAME,TX,TY);
-g.globalAlpha=Math.min(1,sp*3);g.lineWidth=1.8;g.strokeStyle='#f6e8c2';g.shadowColor='rgba(236,210,150,.9)';g.shadowBlur=Q*12;g.setLineDash([800,800]);g.lineDashOffset=800*(1-sp);g.strokeText(NAME,TX,TY);g.restore();
+// Rasterize glyphs without text shadows: WebKit misplaces/clips gradient-text shadows
+// at fractional Retina scales. Apply the glow to the resulting bitmap instead.
+tg.setTransform(1,0,0,1,0,0);tg.clearRect(0,0,TL.width,TL.height);tg.setTransform(Q,0,0,Q,0,0);
+tg.save();txt(tg);tg.letterSpacing=ls;tg.globalAlpha=fp;const f=tg.createLinearGradient(0,TY-90,0,TY+90);f.addColorStop(0,'#fffaf0');f.addColorStop(.5,'#ecd9ab');f.addColorStop(1,'#b9a06a');tg.fillStyle=f;tg.fillText(NAME,TX,TY);
+tg.globalAlpha=Math.min(1,sp*3);tg.lineWidth=1.8;tg.strokeStyle='#f6e8c2';tg.setLineDash([800,800]);tg.lineDashOffset=800*(1-sp);tg.strokeText(NAME,TX,TY);tg.restore();
+g.save();g.shadowColor='rgba(236,210,150,.65)';g.shadowBlur=Q*18;g.drawImage(TL,0,0,W,H);g.restore();
 const sw=t<2?0:seg((t-2)%3.4,0,.75);
 if(sw>0&&sw<1){tg.setTransform(1,0,0,1,0,0);tg.clearRect(0,0,TL.width,TL.height);tg.setTransform(Q,0,0,Q,0,0);tg.save();txt(tg);tg.letterSpacing=ls;tg.fillStyle='#fff';tg.fillText(NAME,TX,TY);tg.globalCompositeOperation='source-in';
 const bx=1000+eo(sw)*900,q=tg.createLinearGradient(bx-110,TY-110,bx+110,TY+110);q.addColorStop(0,'rgba(255,255,255,0)');q.addColorStop(.5,'rgba(255,255,255,1)');q.addColorStop(1,'rgba(255,255,255,0)');tg.fillStyle=q;tg.fillRect(0,0,W,H);tg.restore();g.drawImage(TL,0,0,W,H)}
@@ -93,9 +97,10 @@ const bl=seg(t,1.45,2.3);if(bl>0&&bl<1)glow(CX,CY,1100,'255,238,205',.32*Math.si
 
 addEventListener('resize',()=>{layout();draw(lastT)});
 window.seek=draw;window.ready=IMG.decode().catch(()=>{});
-let t0=null,done=false;
-function loop(ts){if(window.__manual)return;if(t0===null)t0=ts;const t=(ts-t0)/1000;draw(t);
-if(t>=DUR){if(!done){done=true;window.dispatchEvent(new CustomEvent('splash:done'))}return}requestAnimationFrame(loop)}
-window.ready.then(()=>requestAnimationFrame(loop));
-addEventListener('click',()=>{t0=null;done=false;requestAnimationFrame(loop)});
+let t0=null,done=false,rafID=0;
+function loop(ts){if(window.__manual)return;if(t0===null){t0=ts;window.dispatchEvent(new CustomEvent('splash:playing'))}const t=(ts-t0)/1000;draw(t);
+if(t>=DUR){if(!done){done=true;window.dispatchEvent(new CustomEvent('splash:done'))}return}rafID=requestAnimationFrame(loop)}
+window.startSplash=()=>{cancelAnimationFrame(rafID);t0=null;done=false;rafID=requestAnimationFrame(loop)};
+window.ready.then(()=>{if(!new URLSearchParams(location.search).has('preview'))window.startSplash()});
+addEventListener('click',()=>window.startSplash());
 </script></body></html>

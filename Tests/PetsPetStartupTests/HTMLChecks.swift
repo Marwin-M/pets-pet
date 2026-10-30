@@ -29,6 +29,8 @@ import SwiftUI
         let source = root.appendingPathComponent("Sources/PetsPet/DefaultStartup.html")
         let document = try StartupHTMLDocument.read(source)
         let player = StartupHTMLPlayer(document: document)
+        var firstFrames = 0
+        player.onPlaybackStart = { firstFrames += 1 }
         phase = "supplied HTML loading and completion"
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 600), styleMask: [.borderless], backing: .buffered, defer: false)
         let host = NSHostingView(rootView: StartupView(image: nil, player: nil, preview: false, fallback: false, html: player))
@@ -48,12 +50,14 @@ import SwiftUI
         player.start()
         try await wait("provided HTML renders before timeout") { player.ready || failed }
         try check(player.ready && !failed, "the supplied HTML and embedded WebP load in the actual WebKit renderer")
+        try check(firstFrames == 1, "the soundtrack receives one start signal from the actual first animation frame")
         try check(!player.webView.configuration.websiteDataStore.isPersistent, "HTML gets an ephemeral browser store")
         try check(player.webView.underPageBackgroundColor.alphaComponent == 0, "transparent page background is retained")
         let before = ProcessInfo.processInfo.systemUptime
         try await wait("10-second animation completes naturally", seconds: 14) { player.completed || failed }
         try check(player.completed && !failed && ProcessInfo.processInfo.systemUptime - before >= 8,
                   "completion is the artwork's real ten-second event, not an early native timer")
+        try check(firstFrames == 1, "animation frames do not repeatedly restart the score")
         let finalFrame = try await player.webView.evaluateJavaScript("document.querySelector('canvas').toDataURL()") as! String
         try await Task.sleep(nanoseconds: 150_000_000)
         let heldFrame = try await player.webView.evaluateJavaScript("document.querySelector('canvas').toDataURL()") as! String
@@ -165,7 +169,8 @@ import SwiftUI
         try await Task.sleep(nanoseconds: 120_000_000)
         let darkHeld = try await darkPlayer.webView.evaluateJavaScript("document.querySelector('canvas').toDataURL()") as! String
         try check(darkFinal == darkHeld, "night animation freezes its last frame")
-        for (name, size) in [("dark", NSSize(width: 960, height: 600)), ("dark-ultrawide", NSSize(width: 1680, height: 480)),
+        for (name, size) in [("dark", NSSize(width: 960, height: 600)), ("dark-retina", NSSize(width: 1438, height: 932)),
+                             ("dark-fractional", NSSize(width: 1193, height: 768)), ("dark-ultrawide", NSSize(width: 1680, height: 480)),
                              ("dark-portrait", NSSize(width: 480, height: 800))] {
             window.setContentSize(size)
             try await wait("night viewport resizes") { darkPlayer.webView.frame.size == size }
@@ -182,6 +187,27 @@ import SwiftUI
             try check(abs((report["width"] as! Double)-size.width)<1 && abs((report["height"] as! Double)-size.height)<1,
                       "\(name) canvas follows its real viewport")
             try check(report["uniform"] as! Bool && report["dark"] as! Bool, "\(name) keeps uniform scale and the dark backdrop")
+            let titlePixels = try await darkPlayer.webView.evaluateJavaScript("""
+                (() => {
+                  const savedGlow=glow;g.save();
+                  try {
+                    // Isolate the real title and its local glow, excluding particles and the diffuse background.
+                    glow=()=>{};g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,cv.width,cv.height);
+                    g.setTransform(Q,0,0,Q,OX*K,OY*K);g.globalAlpha=1;g.shadowBlur=0;title(3.7);
+                    const pixels=g.getImageData(0,0,cv.width,cv.height).data;
+                    const count=(top,bottom,threshold)=>{
+                      let n=0;
+                      for(let y=Math.max(0,Math.ceil(OY*K+top*Q));y<Math.min(cv.height,Math.floor(OY*K+bottom*Q));y++)
+                        for(let x=Math.max(0,Math.ceil(OX*K+1100*Q));x<Math.min(cv.width,Math.floor(OX*K+1790*Q));x++)
+                          if(pixels[(y*cv.width+x)*4+3]>threshold)n++;
+                      return n;
+                    };
+                    return {body:count(500,670,80),ghost:count(738,746,20)};
+                  } finally {glow=savedGlow;g.restore();window.seek(10);}
+                })()
+                """) as! [String: Int]
+            try check(titlePixels["body"]! > 50 && titlePixels["ghost"]! == 0,
+                      "\(name) renders real golden glyphs without the displaced, clipped duplicate below the ornament")
             if CommandLine.arguments.contains("--images") {
                 let image = try await darkPlayer.webView.takeSnapshot(configuration: nil)
                 let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!
@@ -262,14 +288,46 @@ import SwiftUI
             try await wait("themed default reaches its first frame", 6, { animation.readyForLaunch })
             let themedHost = themedWindow.contentView as! NSHostingView<StartupView>
             try check(themedHost.rootView.htmlReady, "\(theme) default removes its loading indicator")
+            guard let score = animation.soundtrack else {
+                throw NSError(domain: "HTMLChecks", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing bundled \(theme) score"])
+            }
+            try check(score.started && score.isPlaying && abs(score.duration - 3.8) < 0.02,
+                      "\(theme) bundled score is decoded as a short 3.8-second cue alongside its animation")
+            let visualTime = try await themedHost.rootView.html!.webView.evaluateJavaScript("lastT") as! Double
+            try check(abs(visualTime - score.currentTime) < 0.25,
+                      "\(theme) music follows the first animation frame within 250ms")
             let page = themedHost.rootView.html!.webView
             let title = try await page.evaluateJavaScript("document.title") as! String
             try check(title.contains("Divine") == (theme == .dark), "\(theme) selects the corresponding bundled animation")
             let matches = try await page.evaluateJavaScript("matchMedia('(prefers-color-scheme: dark)').matches") as! Bool
             try check(matches == (theme == .dark) && themedWindow.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == (theme == .dark ? .darkAqua : .aqua),
                       "\(theme) preview pins both HTML and native backdrop to the selected appearance")
+            animation.finish()
+            try await Task.sleep(nanoseconds: 350_000_000)
+            if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                try check(score.isPlaying && score.volume < 0.6,
+                          "\(theme) early dismissal fades audio with the native panel")
+            }
             animation.dismissImmediately()
+            try check(!score.isPlaying, "\(theme) immediate dismissal cancels even a closing score")
+            try await waitForFade()
         }
+        let missing = source.deletingLastPathComponent().appendingPathComponent("missing-score.wav")
+        try check(StartupSoundtrack(url: missing) == nil, "a missing score falls back silently without blocking artwork")
+        try check(StartupSoundtrack.url(for: source) == nil,
+                  "a custom HTML file receives no bundled soundtrack or autoplay permission")
+        animation.show(url: nil, preview: false)
+        keepAtEdge(panel()!)
+        try await wait("startup with soundtrack becomes ready", 6, { animation.readyForLaunch })
+        let completedScore = animation.soundtrack!
+        try await wait("short score completes naturally", 5, { !completedScore.isPlaying })
+        let continuingHost = panel()?.contentView as? NSHostingView<StartupView>
+        try check(continuingHost?.rootView.html?.completed == false && completedScore.started,
+                  "the score ends before the ten-second artwork, which continues silently")
+        try await Task.sleep(nanoseconds: 350_000_000)
+        try check(!completedScore.isPlaying && panel() != nil,
+                  "the short score does not loop or close the continuing startup panel")
+        animation.dismissImmediately()
         animation.show(url: source, preview: true)
         let preview = panel()!
         keepAtEdge(preview)

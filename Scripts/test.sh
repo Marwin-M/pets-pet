@@ -18,11 +18,11 @@ swiftc -parse-as-library -swift-version 5 -module-cache-path .build/check-module
   "${core_check_objects[@]}" -o "$check_binary_dir/PetsPetSidebarQuotaChecks"
 "$check_binary_dir/PetsPetSidebarQuotaChecks" "$@"
 swiftc -parse-as-library -swift-version 5 -module-cache-path .build/check-module-cache \
-  -I "$check_binary_dir/Modules" Sources/PetsPet/CodexStartupController.swift Sources/PetsPet/CodexClientLifecycle.swift Sources/PetsPet/StartupMediaStore.swift Sources/PetsPet/StartupAnimation.swift Sources/PetsPet/StartupHTMLPlayer.swift \
+  -I "$check_binary_dir/Modules" Sources/PetsPet/CodexStartupController.swift Sources/PetsPet/CodexClientLifecycle.swift Sources/PetsPet/StartupMediaStore.swift Sources/PetsPet/StartupAnimation.swift Sources/PetsPet/StartupSoundtrack.swift Sources/PetsPet/StartupHTMLPlayer.swift \
   Tests/PetsPetStartupTests/Checks.swift "${core_check_objects[@]}" -o "$check_binary_dir/PetsPetStartupChecks"
 "$check_binary_dir/PetsPetStartupChecks"
 swiftc -parse-as-library -swift-version 5 -module-cache-path .build/check-module-cache \
-  -I "$check_binary_dir/Modules" Sources/PetsPet/StartupHTMLPlayer.swift Sources/PetsPet/StartupMediaStore.swift Sources/PetsPet/StartupAnimation.swift \
+  -I "$check_binary_dir/Modules" Sources/PetsPet/StartupHTMLPlayer.swift Sources/PetsPet/StartupMediaStore.swift Sources/PetsPet/StartupAnimation.swift Sources/PetsPet/StartupSoundtrack.swift \
   Sources/PetsPet/CodexStartupController.swift Tests/PetsPetStartupTests/HTMLChecks.swift "${core_check_objects[@]}" \
   -o "$check_binary_dir/PetsPetHTMLChecks"
 "$check_binary_dir/PetsPetHTMLChecks" "$@"

@@ -81,9 +81,10 @@ const qb=new URLSearchParams(location.search).get('bg');if(qb)setBg(bi={dark:1,l
 addEventListener('keydown',e=>{if(e.key==='b'||e.key==='B'){bi=(bi+1)%4;setBg(bi)}});
 addEventListener('resize',()=>{layout();draw(lastT)});
 window.seek=draw;window.ready=IMG.decode().catch(()=>{});
-let t0=null,done=false;
-function loop(ts){if(window.__manual)return;if(t0===null)t0=ts;const t=(ts-t0)/1000;draw(t);
-if(t>=DUR){if(!done){done=true;window.dispatchEvent(new CustomEvent('splash:done'))}return}requestAnimationFrame(loop)}
-window.ready.then(()=>requestAnimationFrame(loop));
-addEventListener('click',()=>{t0=null;done=false;requestAnimationFrame(loop)});
+let t0=null,done=false,rafID=0;
+function loop(ts){if(window.__manual)return;if(t0===null){t0=ts;window.dispatchEvent(new CustomEvent('splash:playing'))}const t=(ts-t0)/1000;draw(t);
+if(t>=DUR){if(!done){done=true;window.dispatchEvent(new CustomEvent('splash:done'))}return}rafID=requestAnimationFrame(loop)}
+window.startSplash=()=>{cancelAnimationFrame(rafID);t0=null;done=false;rafID=requestAnimationFrame(loop)};
+window.ready.then(()=>{if(!new URLSearchParams(location.search).has('preview'))window.startSplash()});
+addEventListener('click',()=>window.startSplash());
 </script></body></html>

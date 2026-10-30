@@ -116,6 +116,8 @@ struct StartupView: View {
     private var theme: StartupTheme = .light
     private(set) var player: AVPlayer?
     private var html: StartupHTMLPlayer?
+    private(set) var soundtrack: StartupSoundtrack?
+    private var fadingSoundtrack: StartupSoundtrack?
     private(set) var readyForLaunch = true
     private var playerObservation: NSKeyValueObservation?
     private var itemObservation: NSKeyValueObservation?
@@ -170,6 +172,11 @@ struct StartupView: View {
                     let page = StartupHTMLPlayer(document: try StartupHTMLDocument.read(url))
                     page.webView.appearance = theme.appearance
                     html = page; readyForLaunch = false
+                    soundtrack = StartupSoundtrack.url(for: url).flatMap { StartupSoundtrack(url: $0) }
+                    page.onPlaybackStart = { [weak self] in
+                        guard let self, self.generation == current, self.panel != nil else { return }
+                        self.soundtrack?.play()
+                    }
                     page.onReady = { [weak self, weak page] in
                         guard let self, self.generation == current, self.panel != nil else { return }
                         self.readyForLaunch = true
@@ -177,8 +184,9 @@ struct StartupView: View {
                         if preview && page?.completed == true { self.finish() }
                     }
                     page.onComplete = { [weak self, weak page] in
-                        guard let self, self.generation == current, preview, page?.ready == true else { return }
-                        self.finish()
+                        guard let self, self.generation == current else { return }
+                        self.soundtrack?.stop()
+                        if preview && page?.ready == true { self.finish() }
                     }
                     page.onFailure = { [weak self] in self?.useFallback(generation: current, preview: preview) }
                 } catch { fallback = true }
@@ -244,16 +252,21 @@ struct StartupView: View {
         panel = nil
         // Retain the last decoded video frame through the fade; clearing it first causes a black flash.
         let fadingPlayer = player, fadingHTML = html
+        let closingSoundtrack = soundtrack
+        let duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Self.fadeDuration
+        soundtrack = nil; fadingSoundtrack = closingSoundtrack
+        closingSoundtrack?.fadeOut(duration: duration)
         playerObservation = nil; itemObservation = nil
         removePlaybackEndObserver()
         player = nil; html = nil; readyForLaunch = true
         fadingPlayer?.pause()
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Self.fadeDuration
+            context.duration = duration
             window.animator().alphaValue = 0
         } completionHandler: {
             Task { @MainActor in
                 window.orderOut(nil)
+                closingSoundtrack?.stop()
                 fadingPlayer?.replaceCurrentItem(with: nil); fadingHTML?.stop()
             }
         }
@@ -267,6 +280,8 @@ struct StartupView: View {
     }
 
     private func stopPlayback() {
+        soundtrack?.stop(); soundtrack = nil
+        fadingSoundtrack?.stop(); fadingSoundtrack = nil
         removePlaybackEndObserver()
         playerObservation = nil; itemObservation = nil
         player?.pause(); player?.replaceCurrentItem(with: nil); player = nil

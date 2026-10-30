@@ -3,16 +3,44 @@
 <title>Pet’s Pet · 明暗启动动画</title>
 <style>
 *{box-sizing:border-box}body{margin:0;padding:24px;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#ececec;color:#222}
-header{max-width:1120px;margin:0 auto 18px;display:flex;align-items:center;gap:12px}strong{margin-right:auto;font-weight:600}
+header{max-width:1120px;margin:0 auto 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}strong{margin-right:auto;font-weight:600}
 button{border:1px solid #ccc;border-radius:7px;padding:7px 14px;background:#fff;color:#222;cursor:pointer}button[aria-pressed=true]{background:#222;color:white;border-color:#222}
 main{max-width:1120px;margin:auto;background:#fafafa;border-radius:12px;overflow:hidden}iframe{display:block;width:100%;aspect-ratio:16/10;border:0}
 p{max-width:1120px;margin:14px auto;color:#666;font-size:12px}
 </style>
-<header><strong>Pet’s Pet · 启动动画预览</strong><button id="light" aria-pressed="true">浅色</button><button id="dark" aria-pressed="false">深色</button><button id="replay">重播</button></header>
-<main><iframe title="启动动画" src="../Sources/PetsPet/DefaultStartup.html"></iframe></main>
-<p>此页预览两套动画的构图与配色。应用内浅色透明区域使用系统毛玻璃背景，实际启动会在客户端就绪后渐隐。</p>
+<header><strong>Pet’s Pet · 启动动画预览</strong><button id="light" aria-pressed="true">浅色</button><button id="dark" aria-pressed="false">深色</button><button id="replay">重播</button><button id="sound" aria-pressed="false">有声重播</button></header>
+<main><iframe title="启动动画"></iframe></main>
+<p id="status" role="status">点击「有声重播」试听配乐。应用内浅色透明区域使用系统毛玻璃背景，实际启动会在客户端就绪后连同音乐渐隐。</p>
 <script>
-let theme='light';const frame=document.querySelector('iframe');
-function show(next){theme=next;document.querySelector('main').style.background=theme==='light'?'#fafafa':'#05040a';for(const t of ['light','dark'])document.getElementById(t).setAttribute('aria-pressed',String(t===theme));frame.src='../Sources/PetsPet/'+(theme==='light'?'DefaultStartup':'DefaultStartupDark')+'.html'}
-for(const t of ['light','dark'])document.getElementById(t).onclick=()=>show(t);document.getElementById('replay').onclick=()=>show(theme);
+let theme='light',sound=false,generation=0,audio=null;
+const frame=document.querySelector('iframe'),soundButton=document.getElementById('sound'),status=document.getElementById('status');
+function stop(){if(audio){audio.pause();audio.currentTime=0}}
+function show(next){
+  stop();theme=next;const current=++generation;
+  document.querySelector('main').style.background=theme==='light'?'#fafafa':'#05040a';
+  for(const t of ['light','dark'])document.getElementById(t).setAttribute('aria-pressed',String(t===theme));
+  audio=new Audio('../Sources/PetsPet/'+(theme==='light'?'StartupSacredLight':'StartupSacredDark')+'.wav');
+  audio.volume=.65;audio.preload='auto';
+  frame.onload=()=>{
+    const page=frame.contentWindow,track=audio;
+    page.addEventListener('splash:playing',()=>{
+      if(current!==generation)return;
+      track.pause();track.currentTime=0;
+      if(sound)track.play().catch(()=>{if(current===generation)status.textContent='声音未能播放，请关闭声音后再次点击「有声重播」。画面可继续预览。'});
+    });
+    page.addEventListener('splash:done',()=>track.pause());
+    page.ready.then(()=>{if(current===generation)page.startSplash()});
+  };
+  frame.src='../Sources/PetsPet/'+(theme==='light'?'DefaultStartup':'DefaultStartupDark')+'.html?preview';
+}
+for(const t of ['light','dark'])document.getElementById(t).onclick=()=>show(t);
+document.getElementById('replay').onclick=()=>show(theme);
+soundButton.onclick=()=>{
+  sound=!sound;soundButton.setAttribute('aria-pressed',String(sound));soundButton.textContent=sound?'静音':'有声重播';
+  status.textContent=sound?'配乐约 3.8 秒，随人物和标题出现后自然淡出；画面继续播放。':'当前为静音预览。';
+  show(theme);
+};
+addEventListener('pagehide',stop);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
+show(theme);
 </script></html>

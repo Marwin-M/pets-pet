@@ -274,15 +274,19 @@
   {
     "version": "1.7.1",
     "file": "1.7.1/startup-dark.png",
-    "source": "native WebKit checks of Sources/PetsPet/DefaultStartupDark.html",
+    "source": "native WebKit render of Sources/PetsPet/DefaultStartupDark.html at 3s; build 28 title fix",
     "kind": "native HTML foreground render; no system blur or live-client screenshot",
-    "sha256": "08d256ab531db494751ae2cc549007b4b9f29da87505d8f5f31f465508c6dc7b"
+    "sha256": "7296ee80047674d7b5f34b359975d1ba18940f52f7d14164fa7f5a8a3caaa6f7",
+    "generatedAt": "2026-10-28",
+    "viewportPoints": "1438x932"
   },
   {
     "version": "1.7.1",
     "file": "1.7.1/startup-dark-ultrawide.png",
-    "source": "native WebKit checks of Sources/PetsPet/DefaultStartupDark.html",
+    "source": "native WebKit render of Sources/PetsPet/DefaultStartupDark.html at 3s; build 28 title fix",
     "kind": "native HTML foreground render; no system blur or live-client screenshot",
-    "sha256": "2ea67691b0e6e69712a34d22d045e24b5bb362fc2b9f7631479f9464dbb2ac3e"
+    "sha256": "d419fd1017d951225ce4dcc8601a626261ad04aba44549a87eb810d9dd167b65",
+    "generatedAt": "2026-10-28",
+    "viewportPoints": "1680x480"
   }
 ]

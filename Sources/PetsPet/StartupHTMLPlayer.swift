@@ -51,6 +51,8 @@ private final class SplashMessageHandler: NSObject, WKScriptMessageHandler {
     var onReady: (() -> Void)?
     var onFailure: (() -> Void)?
     var onComplete: (() -> Void)?
+    var onPlaybackStart: (() -> Void)?
+    private var playbackStarted = false
     private(set) var ready = false
     private(set) var completed = false
     private(set) var stopped = false
@@ -99,6 +101,9 @@ private final class SplashMessageHandler: NSObject, WKScriptMessageHandler {
               webView.url == StartupHTMLDocument.url,
               let value = message.body as? String else { return }
         switch value {
+        case "playing":
+            guard !playbackStarted, !completed else { return }
+            playbackStarted = true; onPlaybackStart?()
         case "ready":
             guard !ready else { return }
             ready = true; timeoutTask?.cancel(); timeoutTask = nil; onReady?()
@@ -114,7 +119,7 @@ private final class SplashMessageHandler: NSObject, WKScriptMessageHandler {
         guard !stopped else { return }
         stopped = true
         timeoutTask?.cancel(); timeoutTask = nil
-        onReady = nil; onFailure = nil; onComplete = nil
+        onReady = nil; onFailure = nil; onComplete = nil; onPlaybackStart = nil
         webView.stopLoading()
         webView.navigationDelegate = nil
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "petspetSplash")
@@ -141,6 +146,7 @@ private final class SplashMessageHandler: NSObject, WKScriptMessageHandler {
     private static let lifecycleScript = #"""
     (() => {
       const post = event => window.webkit.messageHandlers.petspetSplash.postMessage(event);
+      addEventListener('splash:playing', () => post('playing'));
       addEventListener('error', event => post('error:' + (event.message || '资源加载失败')), true);
       addEventListener('unhandledrejection', event => post('error:' + String(event.reason)));
       const raf = requestAnimationFrame.bind(window), cancel = cancelAnimationFrame.bind(window);
