@@ -10,6 +10,8 @@ This is an independent, unofficial tool. It is not affiliated with OpenAI.
 
 The current macOS release is **1.7.1**. The Windows preview stays on **1.6.0**. Release notes are written in Chinese and live in [`Releases/`](Releases/).
 
+The local build is **1.7.2 (build 29)**, adding update checks and issue feedback. It retries failed checks after 15 minutes, detects same-version build revisions through the release manifest, and defers notices until the app can present them. This build is archived locally and has not been published to GitHub. See the [1.7.2 notes](Releases/1.7.2.md).
+
 | Light | Dark |
 | --- | --- |
 | <img src="Previews/Assets/current.png" width="320" alt="Light quota widget: 5-hour remaining 66, weekly remaining 88"> | <img src="Previews/Assets/current-dark.png" width="320" alt="Dark quota widget: 5-hour remaining 66, weekly remaining 88"> |
@@ -21,6 +23,7 @@ Demo values only (5H 66, W 88). They do not reflect a real account.
 - **Quota widget next to the pet.** Choose **5H + W remaining** or **reset countdown + W remaining**. By default it adapts to the windows returned by the official service. The menu bar shows the exact reset time.
 - **Two placements.** Follow the pet (default; click the pet to collapse or expand the widget), or pin the widget to the bottom of the sidebar. Light, dark, and system appearance are supported.
 - **Today's tokens** in the menu bar, summed from local Codex records since midnight in your time zone.
+- **Update checks and feedback (1.7.2).** Automatic checks run daily after success and retry after 15 minutes on failure. Same-version revisions use the published manifest's build number. Missing metadata reports an unknown result. Feedback only prefills app/build and macOS versions; downloads and installation remain manual.
 - **Conversation usage blocks** in the sidebar. Hover to see input, cached input, and output.
 - **Project folder size** after each project name, measured the same way as Finder's "Size".
 - **Startup animation.** Pet's Pet can launch Codex with a built-in or custom splash (HTML, MOV, MP4, or PNG), with separate light and dark variants.

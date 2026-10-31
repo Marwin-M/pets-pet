@@ -1,6 +1,6 @@
 # 版本图片归档
 
-更新日期：2026-10-28。用于各版本更新说明及 GitHub Release，图片按版本独立保存，不引用会被新版本覆盖的 `Previews/Assets/current.png`。
+更新日期：2026-10-31。用于各版本更新说明及 GitHub Release，图片按版本独立保存，不引用会被新版本覆盖的 `Previews/Assets/current.png`。
 
 本目录保留原文件字节，没有重新绘制历史界面，也没有运行或重装旧应用。1.0.0 为历史实机截图；其余主要为原生组件评审图、程序绘制的菜单／位置示意及评审页面截图，具体性质写在对应版本说明中。
 
@@ -9,6 +9,10 @@
 ## 来源
 
 每张图片的完整来源与 SHA-256 见 [sources.json](sources.json)。`sourcePackageSHA256` 用于确认来源压缩包，`sha256` 用于核对提取图片与原文件一致。
+
+### 1.7.2
+
+`1.7.2/quota-light.png`、`quota-dark.png` 复用已核对的原生组件图，固定演示 5H 剩余 66、W 剩余 88；`menu-light.png`、`menu-dark.png` 由 `Tools/Preview.swift --menu` 按本次菜单入口生成，为原生绘制的布局示意，不是运行中应用截图。本地版本归档，不代表已公开发布。
 
 <a id="v100"></a>
 

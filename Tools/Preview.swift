@@ -109,9 +109,12 @@ struct PreviewRenderer {
                     Text(sample["updated"] as? String ?? "").foregroundStyle(metadataColor)
                     Text("立即刷新")
                     Divider()
-                    ForEach(["显示设置", "侧栏连接（已连接）", "工具与诊断"], id: \.self) { title in
+                    ForEach(["显示设置", "侧栏连接（已连接）", "启动设置", "工具与诊断"], id: \.self) { title in
                         HStack { Text(title); Spacer(); Image(systemName: "chevron.right") }
                     }
+                    Divider()
+                    Text("检查更新…")
+                    Text("反馈问题…")
                     Divider()
                     Text("退出 Pet’s Pet")
                 }.font(.system(size: 13)).foregroundStyle(dark ? Color(white: 0.9) : Color(red: 0.15, green: 0.17, blue: 0.2))

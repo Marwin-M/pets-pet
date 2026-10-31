@@ -780,9 +780,80 @@ final class DailyTokenUsageTests {
     }
 }
 
+final class AppUpdateTests {
+    func release(_ tag: String, url: String = "https://github.com/Marwin-M/pets-pet/releases/tag/v1.8.0", draft: Bool = false, prerelease: Bool = false) throws -> LatestRelease {
+        let json = "{\"tag_name\":\"\(tag)\",\"name\":\"1.8.0 · 测试\",\"html_url\":\"\(url)\",\"draft\":\(draft),\"prerelease\":\(prerelease)}"
+        return try LatestRelease(json: Data(json.utf8))
+    }
+    func testVersionOrdering() {
+        expectTrue(AppVersion("v1.8.0")! > AppVersion("1.7.1")!)
+        expectTrue(AppVersion("1.10.0")! > AppVersion("1.9.9")!)
+        expectEqual(AppVersion("1.7")!, AppVersion("v1.7.0")!)
+        expectFalse(AppVersion("1.7.1")! > AppVersion("1.7.1")!)
+        expectNil(AppVersion(""))
+        expectNil(AppVersion("1.8.0-beta"))
+        expectNil(AppVersion("1..2"))
+        expectEqual(AppVersion("v1.8.0")!.description, "1.8.0")
+    }
+    func testOnlyNewerPublishedReleasesPrompt() throws {
+        let latest = try release("v1.8.0")
+        expectTrue(latest.isNewer(than: "1.7.1"))
+        expectFalse(latest.isNewer(than: "1.8.0"))
+        expectFalse(latest.isNewer(than: "1.9"))
+        expectFalse(latest.isNewer(than: ""))
+        expectEqual(latest.title, "1.8.0 · 测试")
+        expectThrows(try self.release("v1.9.0", draft: true))
+        expectThrows(try self.release("v1.9.0", prerelease: true))
+        expectThrows(try self.release("nightly"))
+        expectThrows(try self.release("v1.9.0", url: "https://example.com/pets-pet/releases/tag/v1.9.0"))
+        expectThrows(try self.release("v1.9.0", url: "https://github.com/someone/else/releases/tag/v1.9.0"))
+        expectThrows(try LatestRelease(json: Data("{}".utf8)))
+    }
+    func testDailyScheduleAndFeedbackLink() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        expectTrue(UpdateCheckSchedule.isDue(lastCheck: nil, at: now))
+        expectFalse(UpdateCheckSchedule.isDue(lastCheck: now.addingTimeInterval(-3600), at: now))
+        expectTrue(UpdateCheckSchedule.isDue(lastCheck: now.addingTimeInterval(-86400), at: now))
+        expectTrue(UpdateCheckSchedule.isDue(lastCheck: now.addingTimeInterval(3600), at: now))
+        expectFalse(UpdateCheckSchedule.isDue(lastCheck: nil, lastFailure: now, at: now))
+        expectFalse(UpdateCheckSchedule.isDue(lastCheck: nil, lastFailure: now.addingTimeInterval(-899), at: now))
+        expectTrue(UpdateCheckSchedule.isDue(lastCheck: nil, lastFailure: now.addingTimeInterval(-900), at: now))
+        expectTrue(UpdateCheckSchedule.isDue(lastCheck: nil, lastFailure: now.addingTimeInterval(30), at: now))
+        expectFalse(UpdateCheckSchedule.isDue(lastCheck: now, lastFailure: now.addingTimeInterval(-901), at: now))
+        expectTrue(UpdateCheckSchedule.isDue(lastCheck: now.addingTimeInterval(-3600), lastFailure: now.addingTimeInterval(-900), at: now))
+        let link = FeedbackLink.newIssue(appVersion: "1.7.1", systemVersion: "26.5.0")
+        expectEqual(link.host, "github.com")
+        expectEqual(link.path, "/Marwin-M/pets-pet/issues/new")
+        let body = URLComponents(url: link, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "body" }?.value ?? ""
+        expectTrue(body.contains("Pet's Pet 1.7.1 · macOS 26.5.0"))
+    }
+    func testRevisionManifest() throws {
+        let release = try self.release("v1.8.0")
+        func data(_ version: String = "1.8.0", _ build: String = "29", _ identity: String = "com.marwin.petspet") throws -> Data {
+            try JSONSerialization.data(withJSONObject: ["version": version, "build": build, "bundleIdentifier": identity])
+        }
+        let revision = try release.includingBuild(from: data())
+        expectTrue(revision.isNewer(than: "1.8.0", currentBuild: 28))
+        expectFalse(revision.isNewer(than: "1.8.0", currentBuild: 29))
+        expectFalse(revision.isNewer(than: "1.8.0", currentBuild: 30))
+        expectFalse(revision.isNewer(than: "1.9.0", currentBuild: 1))
+        expectEqual(revision.notificationKey, "1.8.0+29")
+        expectThrows(try release.includingBuild(from: data("1.7.1")))
+        expectThrows(try release.includingBuild(from: data("1.8.0", "29", "com.someone.else")))
+        expectThrows(try release.includingBuild(from: data("1.8.0", "-1")))
+        expectThrows(try release.includingBuild(from: data("1.8.0", "0")))
+        expectThrows(try release.includingBuild(from: data("1.8.0", "+29")))
+        expectThrows(try release.includingBuild(from: Data("{}".utf8)))
+    }
+}
+
 let identity = PetIdentityTests(), placement = PlacementTests(), quotas = QuotaTests(), displayModes = QuotaDisplayModeTests(), version120 = Version120Tests(), version122 = Version122Tests(), petClicks = PetClickTests(), cadence = TrackingCadenceTests()
-let dailyTokens = DailyTokenUsageTests()
+let dailyTokens = DailyTokenUsageTests(), appUpdates = AppUpdateTests()
 let checks: [(String, () throws -> Void)] = [
+    ("update versions compare numerically", appUpdates.testVersionOrdering),
+    ("only newer published project releases prompt", appUpdates.testOnlyNewerPublishedReleasesPrompt),
+    ("daily update schedule and feedback issue link", appUpdates.testDailyScheduleAndFeedbackLink),
+    ("same-version build revisions and manifest identity", appUpdates.testRevisionManifest),
     ("local daily totals and explicit zero", dailyTokens.testLocalTotalAndExplicitZero),
     ("daily missing buckets and loading are not zero", dailyTokens.testMissingAndLoadingNeverInventZero),
     ("daily freshness, midnight and year boundaries", dailyTokens.testFreshnessAndMidnightUseSelectedDate),

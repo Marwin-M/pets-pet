@@ -20,6 +20,7 @@ import PetsPetSidebar
     private var componentPosition = ComponentPosition.followPet
     private let startup = CodexStartupController()
     private let termination = ApplicationTerminationController()
+    private let updates = UpdateChecker()
     private lazy var clientLifecycle = CodexClientLifecycle(isClientRunning: { CodexStartupEnvironment.live.isRunning() },
                                                            quit: { [weak self] in self?.termination.request() })
     private let startupAnimation = StartupAnimationController()
@@ -42,6 +43,7 @@ import PetsPetSidebar
     private var lastConnection: [Int32] = []
     private var fetching = false
     private var suspended = false
+    private var userSessionActive = true
     private var componentEnabled = true
     private var componentMenuItem: NSMenuItem?
     private weak var openMenu: NSMenu?
@@ -109,13 +111,15 @@ import PetsPetSidebar
                 guard let self else { return }
                 self.model.now = Date()
                 if !self.suspended { self.startupAnimation.recordWindowFrame() }
+                self.presentPendingUpdateIfReady()
+                if !self.suspended && !self.startup.isStarting && self.updates.isDue { self.checkForUpdates(manual: false) }
                 if !self.suspended && (self.state.rect != nil || self.componentPosition == .sidebarBottom && self.componentEnabled) && Date().timeIntervalSince(self.lastFetch) >= 60 { self.fetch() }
             }
         }
-        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(sleep), name: NSWorkspace.willSleepNotification, object: nil)
-        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(wake), name: NSWorkspace.didWakeNotification, object: nil)
-        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(sleep), name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
-        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(wake), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(sleep(_:)), name: NSWorkspace.willSleepNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(wake(_:)), name: NSWorkspace.didWakeNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(sleep(_:)), name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(wake(_:)), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(codexChanged(_:)), name: NSWorkspace.didLaunchApplicationNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(codexChanged(_:)), name: NSWorkspace.didTerminateApplicationNotification, object: nil)
         configureStartup()
@@ -125,6 +129,7 @@ import PetsPetSidebar
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         suspended = true
+        updates.cancel()
         clientLifecycle.cancel()
         startup.cancel(); startupAnimation.dismissImmediately(); mediaImportTask?.cancel()
         termination.beginCleanup { [sidebar] in await sidebar.shutdown() }
@@ -453,6 +458,14 @@ import PetsPetSidebar
         item("重新检测宠物", #selector(rescan), in: tools)
         item("打开本地诊断文件夹", #selector(openDiagnostics), in: tools)
         menu.addItem(.separator())
+        if let release = updates.available {
+            item("发现更新 \(release.displayVersion)…", #selector(openReleasePage), in: menu)
+        }
+        item(updates.checking ? "正在检查更新…" : "检查更新…", #selector(checkForUpdatesFromMenu), in: menu)
+        menu.items.last?.isEnabled = !updates.checking
+        item("反馈问题…", #selector(reportIssue), in: menu)
+        menu.items.last?.toolTip = "在浏览器中打开 GitHub Issues，附带应用和系统版本号"
+        menu.addItem(.separator())
         item("退出 Pet's Pet", #selector(quit), in: menu, key: "q")
         updateOpenDataMenu()
         updateOpenConnectionMenu()
@@ -595,7 +608,47 @@ import PetsPetSidebar
     }
     @objc private func quit() { termination.request() }
     @objc private func openDiagnostics() { if let store { NSWorkspace.shared.open(store.directory) } }
-    @objc private func sleep() {
+
+    @objc private func checkForUpdatesFromMenu() { checkForUpdates(manual: true) }
+    private func checkForUpdates(manual: Bool) {
+        updates.check(manual: manual) { [weak self] _ in self?.presentPendingUpdateIfReady() }
+    }
+    private func presentPendingUpdateIfReady() {
+        let ready = !suspended && userSessionActive && !startup.isStarting && !startupAnimation.isPreviewing && openMenu == nil && NSApp.modalWindow == nil
+        guard let notice = updates.takeNotice(ready: ready) else { return }
+        switch notice {
+        case .available(let release): self.showUpdateAvailable(release)
+        case .upToDate:
+            showUpdateMessage("未发现可用更新", "当前版本 \(updates.currentDescription)。未发现更高版本或更新构建。")
+        case .failed(let message):
+            showUpdateMessage("暂时无法检查更新", "\(message)\n可稍后重试，或到 GitHub 发布页查看。")
+        }
+    }
+    private func showUpdateAvailable(_ release: LatestRelease) {
+        let alert = NSAlert()
+        alert.messageText = "发现更新 \(release.displayVersion)"
+        alert.informativeText = "当前版本 \(updates.currentDescription)。\n\(release.title)\n\n可前往下载页查看更新内容并手动下载、安装。"
+        alert.addButton(withTitle: "前往下载页")
+        alert.addButton(withTitle: "稍后")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(release.page) }
+    }
+    private func showUpdateMessage(_ title: String, _ message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "知道了")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+    }
+    @objc private func openReleasePage() { if let page = updates.available?.page { NSWorkspace.shared.open(page) } }
+    @objc private func reportIssue() {
+        let system = ProcessInfo.processInfo.operatingSystemVersion
+        NSWorkspace.shared.open(FeedbackLink.newIssue(appVersion: updates.currentDescription,
+                                                      systemVersion: "\(system.majorVersion).\(system.minorVersion).\(system.patchVersion)"))
+    }
+    @objc private func sleep(_ notification: Notification) {
+        if notification.name == NSWorkspace.sessionDidResignActiveNotification { userSessionActive = false }
         suspended = true
         startup.cancel(); startupAnimation.dismissImmediately()
         dailyUsageTask?.cancel(); dailyLoading = false
@@ -603,12 +656,14 @@ import PetsPetSidebar
         state.rect = nil; state.occupiedRect = nil
         petClicks.stop(); monitor.stop(); overlay.hide()
     }
-    @objc private func wake() {
+    @objc private func wake(_ notification: Notification) {
+        if notification.name == NSWorkspace.sessionDidBecomeActiveNotification { userSessionActive = true }
         suspended = false
         sidebar.setQuotaEnabled(componentPosition == .sidebarBottom && componentEnabled)
         sidebar.setPaused(false)
         if componentPosition == .followPet { petClicks.start(); monitor.stop(); monitor.rescan(); monitor.start() }
         fetch()
+        presentPendingUpdateIfReady()
     }
 
     @objc private func showSetup() {
