@@ -12,7 +12,7 @@
 
 ### 1.7.2
 
-`1.7.2/quota-light.png`、`quota-dark.png` 复用已核对的原生组件图，固定演示 5H 剩余 66、W 剩余 88；`menu-light.png`、`menu-dark.png` 由 `Tools/Preview.swift --menu` 按本次菜单入口生成，为原生绘制的布局示意，不是运行中应用截图。本地版本归档，不代表已公开发布。
+`1.7.2/quota-light.png`、`quota-dark.png` 复用已核对的原生组件图，固定演示 5H 剩余 66、W 剩余 88；`menu-light.png`、`menu-dark.png` 由 `Tools/Preview.swift --menu` 按本次菜单入口生成，为原生绘制的布局示意，不是运行中应用截图。随 1.7.2 GitHub Release 公开展示，并按版本本地归档。
 
 <a id="v100"></a>
 

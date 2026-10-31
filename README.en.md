@@ -6,11 +6,11 @@ A local companion tool that adds a quota widget next to the Codex Desktop pet. T
 
 This is an independent, unofficial tool. It is not affiliated with OpenAI.
 
-**[Download for macOS](https://github.com/Marwin-M/pets-pet/releases/download/v1.7.1/PetsPet-1.7.1.zip)** · **[Download Windows x64 preview](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [Report an issue](https://github.com/Marwin-M/pets-pet/issues)
+**[Download for macOS](https://github.com/Marwin-M/pets-pet/releases/download/v1.7.2/PetsPet-1.7.2.zip)** · **[Download Windows x64 preview](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [Report an issue](https://github.com/Marwin-M/pets-pet/issues)
 
-The current macOS release is **1.7.1**. The Windows preview stays on **1.6.0**. Release notes are written in Chinese and live in [`Releases/`](Releases/).
+The current macOS release is **1.7.2**. The Windows preview stays on **1.6.0**. Release notes are written in Chinese and live in [`Releases/`](Releases/).
 
-The local build is **1.7.2 (build 29)**, adding update checks and issue feedback. It retries failed checks after 15 minutes, detects same-version build revisions through the release manifest, and defers notices until the app can present them. This build is archived locally and has not been published to GitHub. See the [1.7.2 notes](Releases/1.7.2.md).
+**1.7.2 (build 29)** adds update checks and issue feedback. It retries failed checks after 15 minutes, detects same-version build revisions through the release manifest, and defers notices until the app can present them. The installer, matching source archive and checksums are available on [GitHub Releases](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.2). See the [1.7.2 notes](Releases/1.7.2.md).
 
 | Light | Dark |
 | --- | --- |
@@ -39,7 +39,7 @@ Demo values only (5H 66, W 88). They do not reflect a real account.
 
 ## Install on macOS
 
-1. Download `PetsPet-1.7.1.zip` from the [1.7.1 release page](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.1).
+1. Download `PetsPet-1.7.2.zip` from the [1.7.2 release page](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.2).
 2. Unzip it and move `PetsPet.app` to Applications. Quit any older version before upgrading.
 3. The app is ad-hoc signed and **not notarized by Apple**. If macOS says it cannot verify the developer, first check the download source and checksum, then follow [Apple's instructions](https://support.apple.com/en-us/102445) to open it from **System Settings → Privacy & Security**. You do not need to disable any system protection.
 4. On first launch, allow **PetsPet** in **System Settings → Privacy & Security → Accessibility**. After an upgrade, if the switch is on but the app still says it is not authorized, remove the old entry and add the app again.
@@ -47,7 +47,7 @@ Demo values only (5H 66, W 88). They do not reflect a real account.
 
 The app has no Dock icon and does not start at login. Quit it from the menu bar.
 
-To verify the download, run `shasum -a 256 PetsPet-1.7.1.zip` and compare the result with `SHA256SUMS.txt` on the same release page.
+To verify the download, run `shasum -a 256 PetsPet-1.7.2.zip` and compare the result with `SHA256SUMS.txt` on the same release page.
 
 ## Install the Windows preview
 
