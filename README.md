@@ -2,19 +2,25 @@
 
 中文 | [English](README.en.md)
 
+[![最新版](https://img.shields.io/github/v/release/Marwin-M/pets-pet?label=release)](https://github.com/Marwin-M/pets-pet/releases/latest) [![macOS](https://img.shields.io/badge/macOS-13%2B-black)](#系统要求) [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-arm64-black)](#系统要求)
+
 给 Codex Desktop 宠物加额度组件的本地工具。macOS 版还支持侧栏对话用量和项目文件夹大小；Windows 版为功能范围较小的预览版。
 
 这是独立开发的非官方工具，与 OpenAI 无隶属关系。
 
+| 5H＋W 额度 · 浅色 | 5H＋W 额度 · 深色 |
+| --- | --- |
+| <img src="Previews/Assets/current.png" width="320" alt="浅色额度组件演示：左侧 5H 剩余 66，右侧 W 剩余 88"> | <img src="Previews/Assets/current-dark.png" width="320" alt="深色额度组件演示：左侧 5H 剩余 66，右侧 W 剩余 88"> |
+
+演示数值固定为 5H 剩余 66、W 剩余 88，不代表真实账号额度。
+
 **[下载 macOS 版](https://github.com/Marwin-M/pets-pet/releases/download/v1.7.2/PetsPet-1.7.2.zip)** · **[下载 Windows x64 预览版](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [1.7.2 更新说明](Releases/1.7.2.md) · [反馈问题](https://github.com/Marwin-M/pets-pet/issues)
 
-macOS 当前公开下载版本为 **1.7.2**，安装包、匹配源码和校验文件见 [1.7.2 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.2)。Windows 预览版继续使用 **1.6.0**，从 [Windows 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.6.0) 获取。
+需要 Apple Silicon Mac 与 macOS 13 或更高版本，并已安装、登录 Codex Desktop。应用使用本地临时签名、尚未经 Apple 公证，首次打开的处理方式见 [macOS 下载与安装](#macos-下载与安装)；完整条件见 [系统要求](#系统要求)。
 
-**1.7.2（构建 29）**：新增检查更新和反馈入口，修复失败重试、同版本构建识别及锁屏／启动后的提醒补发；安装包、匹配源码及校验文件已同步 GitHub。详见 [1.7.2 更新说明](Releases/1.7.2.md)。
+macOS 当前公开版本 **1.7.2（构建 29）**，Windows 预览版 **1.6.0**。
 
-**1.7.1（构建 28）**：默认和自定义启动动画支持明暗两套，跟随 Pet’s Pet 外观；新增约 3.8 秒的神圣开屏配乐，音乐自然淡出后画面继续；修复深色标题在部分 Retina 窗口尺寸下的截断字影。旧自定义素材自动保留。修订于 2026-10-28 完成打包，2026-10-30 同步 GitHub；安装包、匹配源码与校验文件见 [1.7.1 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.1)，详见 [更新日志](Releases/1.7.1.md)。
-
-1.7.0 新增自定义启动动画、系统毛玻璃背景、手动启动和可选的跟随退出。Windows [适配预览版](Windows/README.md) 保持原有范围，支持额度、跟随宠物和侧栏组件，尚不包含本次启动功能、Token 与目录统计。
+**最新更新 · 1.7.2**：新增检查更新和反馈入口，修复失败重试、同版本构建识别及锁屏／启动后的提醒补发。详见 [1.7.2 更新说明](Releases/1.7.2.md)。
 
 ## macOS 功能
 
@@ -96,6 +102,7 @@ shasum -a 256 PetsPet-1.7.2.zip
 - 项目大小在本机后台统计，成功结果最多缓存 5 分钟。目录不存在、无权限或超时会显示 `-`，不显示不完整的合计。
 - 诊断记录保存在 `~/Library/Application Support/PetsPet/`，限制大小及文件权限，不写入聊天正文、账号标识和访问令牌。本应用没有上传这些记录的功能。
 - 不修改 Codex 安装文件或其默认启动方式。手动连接可能重新打开 Codex，操作前会明确请求确认。
+- 唯一的对外网络请求是「检查更新」：检查成功后每天自动一次，手动检查时另行发起。请求为 `https://api.github.com/repos/Marwin-M/pets-pet/releases/latest`，仅以应用版本号作为 User-Agent，不携带账号、设备标识或使用数据。额度、Token 与项目大小的读取均在本机完成。
 
 ## 已知限制与验证范围
 
@@ -106,6 +113,12 @@ shasum -a 256 PetsPet-1.7.2.zip
 - Windows 版为独立适配预览，当前不包含今日 Token、对话用量与项目大小；Windows 10、其他 Codex 版本及多屏、遮挡、睡眠等场景仍待实机验收。Windows 的数据与连接说明见 [专页](Windows/README.md)。
 
 发现问题请到 [Issues](https://github.com/Marwin-M/pets-pet/issues) 提供系统版本、芯片、Codex 版本和复现步骤。提交截图或诊断前请检查并移除个人信息，不要上传完整会话数据库或聊天记录。
+
+## 版本更新
+
+**1.7.1（构建 28）**：默认和自定义启动动画支持明暗两套，跟随 Pet’s Pet 外观；新增约 3.8 秒的神圣开屏配乐，音乐自然淡出后画面继续；修复深色标题在部分 Retina 窗口尺寸下的截断字影。旧自定义素材自动保留。修订于 2026-10-28 完成打包，2026-10-30 同步 GitHub；安装包、匹配源码与校验文件见 [1.7.1 下载页](https://github.com/Marwin-M/pets-pet/releases/tag/v1.7.1)，详见 [更新日志](Releases/1.7.1.md)。
+
+1.7.0 新增自定义启动动画、系统毛玻璃背景、手动启动和可选的跟随退出。Windows [适配预览版](Windows/README.md) 保持原有范围，支持额度、跟随宠物和侧栏组件，尚不包含本次启动功能、Token 与目录统计。
 
 ## macOS 开发
 

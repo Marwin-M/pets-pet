@@ -1,0 +1,13 @@
+# GitHub 语言统计：Swift 为本项目主语言。
+# Sources/PetsPet/DefaultStartup*.html 是应用运行时加载的启动动画资源，
+# 不是网页源码，不参与语言统计（文件本身仍公开可查）。
+*.swift linguist-language=Swift
+Sources/PetsPet/DefaultStartup*.html linguist-detectable=false
+Previews/** linguist-documentation=true
+
+# 二进制资源，禁止行尾转换和文本 diff。
+*.png binary
+*.icns binary
+*.wav binary
+*.zip binary
+*.app binary

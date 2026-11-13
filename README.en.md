@@ -2,11 +2,15 @@
 
 [中文](README.md) | English
 
+[![release](https://img.shields.io/github/v/release/Marwin-M/pets-pet?label=release)](https://github.com/Marwin-M/pets-pet/releases/latest) [![macOS](https://img.shields.io/badge/macOS-13%2B-black)](#requirements) [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-arm64-black)](#requirements)
+
 A local companion tool that adds a quota widget next to the Codex Desktop pet. The macOS version also shows per-conversation token usage and project folder sizes in the sidebar. The Windows version is a preview with a smaller feature set.
 
 This is an independent, unofficial tool. It is not affiliated with OpenAI.
 
 **[Download for macOS](https://github.com/Marwin-M/pets-pet/releases/download/v1.7.2/PetsPet-1.7.2.zip)** · **[Download Windows x64 preview](https://github.com/Marwin-M/pets-pet/releases/download/v1.6.0/PetsPet-Windows-1.6.0-x64.zip)** · [Report an issue](https://github.com/Marwin-M/pets-pet/issues)
+
+Requires an Apple Silicon Mac running macOS 13 or later with Codex Desktop installed and signed in. The app is ad-hoc signed and not notarized by Apple; see [Install on macOS](#install-on-macos) for the first-launch steps, and [Requirements](#requirements) for the full list.
 
 The current macOS release is **1.7.2**. The Windows preview stays on **1.6.0**. Release notes are written in Chinese and live in [`Releases/`](Releases/).
 
@@ -67,6 +71,7 @@ Do not forward this port to an external network. This feature depends on Codex's
 - Token usage is read from local Codex statistics only. Message content is never extracted or stored. Conversations without local records (for example, cloud tasks) show as unknown.
 - Diagnostics are kept in `~/Library/Application Support/PetsPet/`, size-limited, and contain no chat text, account identifiers, or access tokens. The app cannot upload them.
 - Pet's Pet does not modify Codex's installation or its default launch behavior.
+- The only outbound network request is the update check: once a day after a successful check, plus any manual check. It requests `https://api.github.com/repos/Marwin-M/pets-pet/releases/latest` with the app version as its User-Agent, and sends no account, device, or usage data. Quota, token, and folder-size readings all happen locally.
 
 ## Known limitations
 
